@@ -53,8 +53,10 @@ namespace ModSettings
 
         private static readonly List<Choice> choices = new List<Choice>();
         private static readonly List<Field> fields = new List<Field>();
+        // The glyphs of each drawn line that opens another page.
+        private static readonly List<(AlienCharacter Glyph, Glyphs.Page Page)> links = new List<(AlienCharacter, Glyphs.Page)>();
         private static List<Glyphs.Mod> mods;
-        private static Glyphs.Mod shown;
+        private static Glyphs.Page shown;
 
         private static Draw Manager => Global.manager;
 
@@ -63,14 +65,25 @@ namespace ModSettings
         private static bool OnList(Draw d) =>
             d != null && d.current_page == ListPage && Parent(d, 1) == GamePage;
 
-        // The mod whose page is open, if any, opened from the menu of mods.
-        private static Glyphs.Mod OpenMod(Draw d)
+        // The settings page that is open, if any: a mod's own page, opened from the menu of mods,
+        // or one of its other pages, opened from its own page.
+        private static Glyphs.Page OpenPage(Draw d)
         {
-            if (d == null || Parent(d, 1) != ListPage || Parent(d, 2) != GamePage)
+            if (d == null)
             {
                 return null;
             }
-            return (mods ??= Glyphs.Mods()).FirstOrDefault(m => m.Title == d.current_page);
+            mods ??= Glyphs.Mods();
+            if (Parent(d, 1) == ListPage && Parent(d, 2) == GamePage)
+            {
+                return mods.FirstOrDefault(m => m.Title == d.current_page)?.Root;
+            }
+            if (Parent(d, 2) == ListPage && Parent(d, 3) == GamePage)
+            {
+                var mod = mods.FirstOrDefault(m => m.Title == Parent(d, 1));
+                return mod?.Root.Rows.Select(r => r.Link).FirstOrDefault(p => p != null && p.Title == d.current_page);
+            }
+            return null;
         }
 
         // The page n levels above the current one.
@@ -82,18 +95,19 @@ namespace ModSettings
 
         private static string Line(IEnumerable<string> words) => string.Join(" ", words);
 
-        // A mod page's lines: each setting's name, then its choices or room for its text field. A
-        // row that would not fit in the lines left on a page starts the next page instead, so no
-        // row is split between pages. Also the setting of each line, as Draw.Write numbers lines,
-        // or -1 for a line that only starts a page.
-        private static (string Text, List<int> Rows) PageRows(Glyphs.Mod mod)
+        // A page's lines: a setting's name, then its choices or room for its text field, or the
+        // name of a page it opens. A row that would not fit in the lines left on a page starts the
+        // next page instead, so no row is split between pages. Also the page row of each line, as
+        // Draw.Write numbers lines, or -1 for a line that only starts a page.
+        private static (string Text, List<int> Rows) PageRows(Glyphs.Page page)
         {
             var text = new StringBuilder();
             var rows = new List<int>();
             var used = 0;
-            for (var i = 0; i < mod.Settings.Count; i++)
+            for (var i = 0; i < page.Rows.Count; i++)
             {
-                var tokens = RowTokens(mod.Settings[i]);
+                var row = page.Rows[i];
+                var tokens = row.Setting == null ? row.Link.Words : RowTokens(row.Setting);
                 var lines = Lines(tokens.Count);
                 if (i > 0)
                 {
@@ -188,15 +202,15 @@ namespace ModSettings
                             return false;
                         }
                     }
-                    var mod = OpenMod(d);
-                    if (mod != null)
+                    var page = OpenPage(d);
+                    if (page != null)
                     {
-                        if (s == mod.Title)
+                        if (s == page.Title)
                         {
-                            __result = PageRows(mod).Text;
+                            __result = PageRows(page).Text;
                             return false;
                         }
-                        if (s == mod.Title + TutorialSuffix)
+                        if (s == page.Title + TutorialSuffix)
                         {
                             __result = ModTutorial;
                             return false;
@@ -285,12 +299,13 @@ namespace ModSettings
         private static void Layout(Draw d)
         {
             choices.Clear();
-            var mod = OpenMod(d);
-            shown = mod;
+            links.Clear();
+            var page = OpenPage(d);
+            shown = page;
             var used = 0;
-            if (mod != null && d.alien_right_text_down != null)
+            if (page != null && d.alien_right_text_down != null)
             {
-                var rows = PageRows(mod).Rows;
+                var rows = PageRows(page).Rows;
                 foreach (var row in d.alien_right_text_down.Where(a => a.sector == "righttextdown").GroupBy(a => a.line))
                 {
                     if (row.Key < 0 || row.Key >= rows.Count || rows[row.Key] < 0)
@@ -298,7 +313,18 @@ namespace ModSettings
                         continue;
                     }
                     var glyphs = row.ToList();
-                    var setting = mod.Settings[rows[row.Key]];
+                    var link = page.Rows[rows[row.Key]].Link;
+                    if (link != null)
+                    {
+                        // Underlined like a menu line.
+                        foreach (var glyph in glyphs)
+                        {
+                            links.Add((glyph, link));
+                            d.selected.Add(d.DrawLineRenderer(glyph.sp.transform.position + new Vector3(-0.5f, -0.92f), glyph.sp.transform.position + new Vector3(0.5f, -0.92f), 3));
+                        }
+                        continue;
+                    }
+                    var setting = page.Rows[rows[row.Key]].Setting;
                     var label = glyphs.Take(setting.Label.Count).ToList();
                     if (setting.Choices != null)
                     {
@@ -438,7 +464,7 @@ namespace ModSettings
             {
                 return glyph.line_str == ListPage;
             }
-            return shown != null && shown == OpenMod(d) && choices.Any(c => c.Glyph == glyph);
+            return shown != null && shown == OpenPage(d) && (choices.Any(c => c.Glyph == glyph) || links.Any(l => l.Glyph == glyph));
         }
 
         internal static void Tick()
@@ -457,6 +483,10 @@ namespace ModSettings
                     {
                         d.ToPage(ListPage);
                     }
+                    else if (links.Any(l => l.Glyph == glyph))
+                    {
+                        d.ToPage(links.First(l => l.Glyph == glyph).Page.Title);
+                    }
                     else
                     {
                         var choice = choices.First(c => c.Glyph == glyph);
@@ -471,7 +501,7 @@ namespace ModSettings
         // Fields cover their cells' glyph area; follow the screen size like the game's labels.
         private static void PositionFields(Draw d)
         {
-            var open = shown != null && shown == OpenMod(d);
+            var open = shown != null && shown == OpenPage(d);
             var cam = Camera.main;
             var slots = d.alien_slots;
             if (cam == null || slots == null)

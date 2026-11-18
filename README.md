@@ -8,7 +8,7 @@ Install BepInEx first, if you haven't already, as described under [Requirements]
 
 ## Use
 
-The game's settings page gets one more row, this mod's name in glyphs, just above its last row. Clicking it opens a menu of mods, one line per mod that names itself in glyphs and has at least one setting to show. Clicking a mod opens its page, laid out like the game's settings page: one row per setting, its name in glyphs, then an empty cell and its choices, with the current choice boxed. Clicking a choice changes the setting. Settings without a glyph for each value, such as most number and text settings, appear as text fields instead of clickable glyphs.
+The game's settings page gets one more row, this mod's name in glyphs, just above its last row. Clicking it opens a menu of mods, one line per mod that names itself in glyphs and has at least one setting to show. Clicking a mod opens its page, laid out like the game's settings page: one row per setting, its name in glyphs, then an empty cell and its choices, with the current choice boxed. Clicking a choice changes the setting. Settings without a glyph for each value, such as most number and text settings, appear as text fields instead of clickable glyphs. A mod can also put settings on sub-pages opened from the mod's settings page.
 
 Changes apply as they would from the `.cfg` file, and BepInEx saves them to it. Some settings change immediately, some only on a game restart.
 
@@ -34,6 +34,7 @@ Config.Bind("Section", "Key", true, new ConfigDescription("English description",
 |---|---|
 | `MessageFromAliens.Label` | The setting's name in glyphs. Required; settings without it are not shown. |
 | `MessageFromAliens.Value.<value>` | The glyph for one value, keyed by the value as written in the `.cfg` file, such as `MessageFromAliens.Value.Fast`. |
+| `MessageFromAliens.Page` | The name in glyphs of the page the setting is on. Optional; settings without it are on the mod's own page. Settings with the same name share a page, in the order they were bound. |
 | `MessageFromAliens.Quoted` | `true` if the `.cfg` file writes the value in double quotes, as a setting must to keep leading or trailing spaces. The text field shows and takes the value without them. |
 
 A `bool` setting is shown with the game's yes and no glyphs unless its tags say otherwise. An enum setting, or one with an `AcceptableValueList`, is shown as choices when every value has exactly one glyph. Any other setting gets a text field.
@@ -70,7 +71,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 | `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. |
 | `Draw.CurrentPageIsMenu` | Postfix: true on the menu of mods, so its lines are drawn, highlighted, and clicked like a menu's. |
 | `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods opens. |
-| `Draw.UpdateText1` | Postfix: boxes the current choices and places the text fields. |
-| `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. Postfix: shows the clickable cursor over the settings page's new row and over choices. |
+| `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |
+| `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. Postfix: shows the clickable cursor over the settings page's new row, over choices, and over lines that open pages. |
 
 The plugin's `LateUpdate` handles clicks on those, since the game ignores clicks on pages it does not know.

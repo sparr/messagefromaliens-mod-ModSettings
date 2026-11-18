@@ -13,6 +13,9 @@ namespace ModSettings
     //   "MessageFromAliens.Label"         the setting's name in glyphs (required)
     //   "MessageFromAliens.Value.<value>" the glyph for one value, keyed by the value as written
     //                                     in the .cfg file (optional; bool defaults to yes/no)
+    //   "MessageFromAliens.Page"          a page's name in glyphs (optional): settings with the
+    //                                     same page are shown on their own page, opened from one
+    //                                     line on the mod's page where the first of them would be
     //   "MessageFromAliens.Quoted"        "true" if the .cfg file wraps the value in double quotes,
     //                                     which the text field leaves out (optional)
     // Words are the game's word IDs separated by spaces, as in its text files. Only standard
@@ -23,12 +26,32 @@ namespace ModSettings
         internal const string LabelKey = "MessageFromAliens.Label";
         internal const string ValuePrefix = "MessageFromAliens.Value.";
         internal const string QuotedKey = "MessageFromAliens.Quoted";
+        internal const string PageKey = "MessageFromAliens.Page";
 
         internal sealed class Mod
         {
             internal string Name;
             internal string Title;
             internal List<Setting> Settings;
+            // The mod's own page, whose rows are settings and links to its other pages.
+            internal Page Root;
+        }
+
+        // A page of settings: the mod's own, or one of its pages opened from a line on it.
+        internal sealed class Page
+        {
+            internal Mod Mod;
+            // The page's name, as the game names pages, and as glyphs.
+            internal string Title;
+            internal List<string> Words;
+            internal readonly List<Row> Rows = new List<Row>();
+        }
+
+        // One row of a page: a setting, or a line opening another page.
+        internal sealed class Row
+        {
+            internal Setting Setting;
+            internal Page Link;
         }
 
         internal sealed class Setting
@@ -41,6 +64,8 @@ namespace ModSettings
             internal List<(string Glyph, object Value)> Choices;
             // Where the text field starts, in lines and cells from the start of the setting's row.
             internal int FieldLine, FieldColumn;
+            // The words of the page the setting is on, or empty for the mod's own page.
+            internal List<string> Page;
         }
 
         // Mods that name themselves in glyphs and have at least one tagged setting, by English name.
@@ -72,10 +97,34 @@ namespace ModSettings
                 }
                 if (settings.Count > 0)
                 {
-                    mods.Add(new Mod { Name = name, Title = string.Join(" ", words), Settings = settings });
+                    mods.Add(Build(new Mod { Name = name, Title = string.Join(" ", words), Settings = settings }, words));
                 }
             }
             return mods;
+        }
+
+        // Lays out a mod's pages: its own page gets each setting with no page, and one line per
+        // page, where that page's first setting is.
+        private static Mod Build(Mod mod, List<string> words)
+        {
+            mod.Root = new Page { Mod = mod, Title = mod.Title, Words = words };
+            var pages = new Dictionary<string, Page>();
+            foreach (var setting in mod.Settings)
+            {
+                if (setting.Page.Count == 0)
+                {
+                    mod.Root.Rows.Add(new Row { Setting = setting });
+                    continue;
+                }
+                var title = string.Join(" ", setting.Page);
+                if (!pages.TryGetValue(title, out var page))
+                {
+                    pages[title] = page = new Page { Mod = mod, Title = title, Words = setting.Page };
+                    mod.Root.Rows.Add(new Row { Link = page });
+                }
+                page.Rows.Add(new Row { Setting = setting });
+            }
+            return mod;
         }
 
         // The game's own tokens for a phrase, as it stores the lines of its text files, leaving out
@@ -94,7 +143,8 @@ namespace ModSettings
                 return null;
             }
             var quoted = tags.TryGetValue(QuotedKey, out var q) && string.Equals(q?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
-            return new Setting { Entry = entry, Label = Words(label), Quoted = quoted, Choices = Choices(entry, tags) };
+            var page = tags.TryGetValue(PageKey, out var p) ? Words(p) : new List<string>();
+            return new Setting { Entry = entry, Label = Words(label), Quoted = quoted, Choices = Choices(entry, tags), Page = page };
         }
 
         private static List<(string, object)> Choices(ConfigEntryBase entry, IDictionary<string, string> tags)
