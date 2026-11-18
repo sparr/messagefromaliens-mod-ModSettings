@@ -13,6 +13,8 @@ namespace ModSettings
     //   "MessageFromAliens.Label"         the setting's name in glyphs (required)
     //   "MessageFromAliens.Value.<value>" the glyph for one value, keyed by the value as written
     //                                     in the .cfg file (optional; bool defaults to yes/no)
+    //   "MessageFromAliens.Quoted"        "true" if the .cfg file wraps the value in double quotes,
+    //                                     which the text field leaves out (optional)
     // Words are the game's word IDs separated by spaces, as in its text files. Only standard
     // types are involved, so mods need no reference to this one.
     internal static class Glyphs
@@ -20,6 +22,7 @@ namespace ModSettings
         internal const string NameKey = "MessageFromAliens.Name";
         internal const string LabelKey = "MessageFromAliens.Label";
         internal const string ValuePrefix = "MessageFromAliens.Value.";
+        internal const string QuotedKey = "MessageFromAliens.Quoted";
 
         internal sealed class Mod
         {
@@ -32,6 +35,8 @@ namespace ModSettings
         {
             internal ConfigEntryBase Entry;
             internal List<string> Label;
+            // The .cfg form wraps the value in double quotes; edit it without them.
+            internal bool Quoted;
             // One entry per choice glyph, or null for a setting edited as text.
             internal List<(string Glyph, object Value)> Choices;
             // Where the text field starts, in lines and cells from the start of the setting's row.
@@ -88,7 +93,8 @@ namespace ModSettings
             {
                 return null;
             }
-            return new Setting { Entry = entry, Label = Words(label), Choices = Choices(entry, tags) };
+            var quoted = tags.TryGetValue(QuotedKey, out var q) && string.Equals(q?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+            return new Setting { Entry = entry, Label = Words(label), Quoted = quoted, Choices = Choices(entry, tags) };
         }
 
         private static List<(string, object)> Choices(ConfigEntryBase entry, IDictionary<string, string> tags)

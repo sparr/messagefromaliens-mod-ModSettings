@@ -34,10 +34,11 @@ Config.Bind("Section", "Key", true, new ConfigDescription("English description",
 |---|---|
 | `MessageFromAliens.Label` | The setting's name in glyphs. Required; settings without it are not shown. |
 | `MessageFromAliens.Value.<value>` | The glyph for one value, keyed by the value as written in the `.cfg` file, such as `MessageFromAliens.Value.Fast`. |
+| `MessageFromAliens.Quoted` | `true` if the `.cfg` file writes the value in double quotes, as a setting must to keep leading or trailing spaces. The text field shows and takes the value without them. |
 
 A `bool` setting is shown with the game's yes and no glyphs unless its tags say otherwise. An enum setting, or one with an `AcceptableValueList`, is shown as choices when every value has exactly one glyph. Any other setting gets a text field.
 
-Examples: https://github.com/sparr/messagefromaliens-mod-Calculator/blob/16f5811e0963f845ce775e9852ef7db2ac421f6f/src/Plugin.cs#L34-L82
+Examples: https://github.com/sparr/messagefromaliens-mod-CompoundTranslations/blob/60cd37f99da6bc7d56d026ba568f2ea9634ee138/src/Plugin.cs#L47C1-L95C4
 
 ## Requirements
 

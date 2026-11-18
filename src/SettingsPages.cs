@@ -365,9 +365,16 @@ namespace ModSettings
             return false;
         }
 
-        // The value as the .cfg file writes it.
-        private static string Display(Glyphs.Setting setting) =>
-            TomlTypeConverter.ConvertToString(setting.Entry.BoxedValue, setting.Entry.SettingType);
+        // The value as the .cfg file writes it, without the quotes of a quoted setting.
+        private static string Display(Glyphs.Setting setting)
+        {
+            var text = TomlTypeConverter.ConvertToString(setting.Entry.BoxedValue, setting.Entry.SettingType);
+            if (setting.Quoted && text.Length >= 2 && text[0] == '"' && text[text.Length - 1] == '"')
+            {
+                text = text.Substring(1, text.Length - 2);
+            }
+            return text;
+        }
 
         private static Field CreateField(Draw d)
         {
@@ -401,7 +408,7 @@ namespace ModSettings
             }
             try
             {
-                entry.BoxedValue = TomlTypeConverter.ConvertToValue(text, entry.SettingType);
+                entry.BoxedValue = TomlTypeConverter.ConvertToValue(field.Setting.Quoted ? "\"" + text + "\"" : text, entry.SettingType);
             }
             catch (Exception e)
             {
