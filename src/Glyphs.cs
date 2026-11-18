@@ -32,8 +32,10 @@ namespace ModSettings
         {
             internal ConfigEntryBase Entry;
             internal List<string> Label;
-            // One entry per choice glyph.
+            // One entry per choice glyph, or null for a setting edited as text.
             internal List<(string Glyph, object Value)> Choices;
+            // Where the text field starts, in lines and cells from the start of the setting's row.
+            internal int FieldLine, FieldColumn;
         }
 
         // Mods that name themselves in glyphs and have at least one tagged setting, by English name.
@@ -86,8 +88,7 @@ namespace ModSettings
             {
                 return null;
             }
-            var choices = Choices(entry, tags);
-            return choices == null ? null : new Setting { Entry = entry, Label = Words(label), Choices = choices };
+            return new Setting { Entry = entry, Label = Words(label), Choices = Choices(entry, tags) };
         }
 
         private static List<(string, object)> Choices(ConfigEntryBase entry, IDictionary<string, string> tags)
@@ -121,7 +122,7 @@ namespace ModSettings
                 var words = Words(glyph);
                 if (words.Count != 1)
                 {
-                    // Every choice needs exactly one glyph; otherwise the setting is not shown.
+                    // Every choice needs exactly one glyph; otherwise edit the value as text.
                     return null;
                 }
                 choices.Add((words[0], value));
