@@ -18,6 +18,9 @@ namespace ModSettings
     //                                     line on the mod's page where the first of them would be
     //   "MessageFromAliens.Quoted"        "true" if the .cfg file wraps the value in double quotes,
     //                                     which the text field leaves out (optional)
+    //   "MessageFromAliens.Gate"          a gate token, as the game's text files put at the start
+    //                                     of a menu line: the setting is shown only once the gate
+    //                                     passes, wherever its row falls (optional)
     // Words are the game's word IDs separated by spaces, as in its text files. Only standard
     // types are involved, so mods need no reference to this one.
     internal static class Glyphs
@@ -27,6 +30,7 @@ namespace ModSettings
         internal const string ValuePrefix = "MessageFromAliens.Value.";
         internal const string QuotedKey = "MessageFromAliens.Quoted";
         internal const string PageKey = "MessageFromAliens.Page";
+        internal const string GateKey = "MessageFromAliens.Gate";
 
         internal sealed class Mod
         {
@@ -142,9 +146,23 @@ namespace ModSettings
             {
                 return null;
             }
+            if (tags.TryGetValue(GateKey, out var gate) && !Unlocked(gate))
+            {
+                return null;
+            }
             var quoted = tags.TryGetValue(QuotedKey, out var q) && string.Equals(q?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
             var page = tags.TryGetValue(PageKey, out var p) ? Words(p) : new List<string>();
             return new Setting { Entry = entry, Label = Words(label), Quoted = quoted, Choices = Choices(entry, tags), Page = page };
+        }
+
+        // True when this gate token passes, as the game checks the gate at the start of a menu
+        // line. Like the game, only the first token counts. Unlike the game, a setting's gate
+        // counts on its page's first row too. Global.GetWin takes the token without its brackets.
+        private static bool Unlocked(string gate)
+        {
+            var token = (gate ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+            var page = token.TrimStart('[').TrimEnd(']');
+            return page == "" || Global.GetWin(page);
         }
 
         private static List<(string, object)> Choices(ConfigEntryBase entry, IDictionary<string, string> tags)
