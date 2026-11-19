@@ -236,7 +236,10 @@ namespace ModSettings
                     return;
                 }
                 var lines = __result.Split(new[] { " newline " }, StringSplitOptions.None).ToList();
-                var reset = lines.FindLastIndex(l => l.Trim() == ResetLine);
+                // Compared as Draw.Write builds a line's text, without gates and other tokens it
+                // does not draw, which a content pack could add.
+                var reset = lines.FindLastIndex(l => Line(l.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(t => !t.StartsWith("[") && !t.StartsWith("("))) == ResetLine);
                 lines.Insert(reset >= 0 ? reset : lines.Count, ListPage);
                 __result = string.Join(" newline ", lines);
             }
