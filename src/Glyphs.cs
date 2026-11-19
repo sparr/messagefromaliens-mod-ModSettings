@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 
@@ -34,7 +35,6 @@ namespace ModSettings
 
         internal sealed class Mod
         {
-            internal string Name;
             internal string Title;
             internal List<Setting> Settings;
             // The mod's own page, whose rows are settings and links to its other pages.
@@ -83,9 +83,18 @@ namespace ModSettings
                 {
                     continue;
                 }
-                var name = plugin.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-                    .FirstOrDefault(a => a.Key == NameKey)?.Value;
-                var words = Words(name);
+                List<string> words;
+                try
+                {
+                    var name = plugin.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                        .FirstOrDefault(a => a.Key == NameKey)?.Value;
+                    words = Words(name);
+                }
+                catch (Exception e)
+                {
+                    Warn(info.Metadata.Name, $"{info.Metadata.Name}: its name in glyphs can't be read, so it is not listed: {e.Message}");
+                    continue;
+                }
                 if (words.Count == 0)
                 {
                     continue;
@@ -93,7 +102,16 @@ namespace ModSettings
                 var settings = new List<Setting>();
                 foreach (var pair in plugin.Config)
                 {
-                    var setting = Read(pair.Value);
+                    Setting setting;
+                    try
+                    {
+                        setting = Read(pair.Value);
+                    }
+                    catch (Exception e)
+                    {
+                        Warn(info.Metadata.Name + "/" + pair.Key, $"{info.Metadata.Name}: {pair.Key}'s tags can't be read, so it is not shown: {e.Message}");
+                        continue;
+                    }
                     if (setting != null)
                     {
                         settings.Add(setting);
@@ -101,7 +119,7 @@ namespace ModSettings
                 }
                 if (settings.Count > 0)
                 {
-                    mods.Add(Build(new Mod { Name = name, Title = string.Join(" ", words), Settings = settings }, words));
+                    mods.Add(Build(new Mod { Title = string.Join(" ", words), Settings = settings }, words));
                 }
             }
             return mods;
@@ -131,13 +149,41 @@ namespace ModSettings
             return mod;
         }
 
+        // Problems are logged once each, since discovery runs again on every visit to the menu.
+        private static readonly HashSet<string> warned = new HashSet<string>();
+
+        private static void Warn(string key, string message)
+        {
+            if (warned.Add(key))
+            {
+                Plugin.Log.LogWarning(message);
+            }
+        }
+
+        // A number token with an exponent this large makes the game's parser loop forever.
+        private const int MaxExponent = 300;
+        private static readonly Regex Exponent = new Regex(@"^-?\d+(?:\.\d+)?(?:e|E|x|A|F|DS|D)(-?\d+)");
+
         // The game's own tokens for a phrase, as it stores the lines of its text files, leaving out
         // the ones it doesn't draw: tokens starting with ( or [, such as the value token it adds
         // after a number. Each token kept is one drawn glyph.
-        internal static List<string> Words(string phrase) =>
-            string.IsNullOrWhiteSpace(phrase)
-                ? new List<string>()
-                : Global.StringToListString(phrase.Trim()).Where(w => w != "" && !w.StartsWith("(") && !w.StartsWith("[")).ToList();
+        // Throws for a phrase the game's parser rejects.
+        internal static List<string> Words(string phrase)
+        {
+            if (string.IsNullOrWhiteSpace(phrase))
+            {
+                return new List<string>();
+            }
+            foreach (var token in phrase.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var m = Exponent.Match(token);
+                if (m.Success && (!int.TryParse(m.Groups[1].Value, out var k) || Math.Abs(k) > MaxExponent))
+                {
+                    throw new FormatException($"a number's exponent is larger than {MaxExponent}");
+                }
+            }
+            return Global.StringToListString(phrase.Trim()).Where(w => w != "" && !w.StartsWith("(") && !w.StartsWith("[")).ToList();
+        }
 
         private static Setting Read(ConfigEntryBase entry)
         {

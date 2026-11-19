@@ -73,13 +73,14 @@ namespace ModSettings
             {
                 return null;
             }
-            mods ??= Glyphs.Mods();
             if (Parent(d, 1) == ListPage && Parent(d, 2) == GamePage)
             {
+                mods ??= Glyphs.Mods();
                 return mods.FirstOrDefault(m => m.Title == d.current_page)?.Root;
             }
             if (Parent(d, 2) == ListPage && Parent(d, 3) == GamePage)
             {
+                mods ??= Glyphs.Mods();
                 var mod = mods.FirstOrDefault(m => m.Title == Parent(d, 1));
                 return mod?.Root.Rows.Select(r => r.Link).FirstOrDefault(p => p != null && p.Title == d.current_page);
             }
