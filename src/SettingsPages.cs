@@ -314,24 +314,31 @@ namespace ModSettings
         // game's; the glyph under the mouse now belongs to the new page and must not take it too.
         private static string pageAtUpdate;
 
-        // The game sets the cursor each frame from what is under it; mark these rows clickable.
         [HarmonyPatch(typeof(Draw), "Update")]
         private static class UpdatePatch
         {
             private static void Prefix(Draw __instance) => pageAtUpdate = __instance.current_page;
+        }
 
-            private static void Postfix(Draw __instance)
+        // The game sets the cursor each frame from what is under it, in the color of nothing
+        // clickable for these rows; give it the clickable color instead. Setting it again after
+        // the game would change the cursor twice every frame.
+        [HarmonyPatch(typeof(HardwareCursor), nameof(HardwareCursor.Apply))]
+        private static class CursorPatch
+        {
+            private static void Prefix(ref Color c)
             {
                 try
                 {
-                    if (Clickable(__instance, HitGlyph()))
+                    var d = Manager;
+                    if (d != null && c == d.DefaultColor(5) && Clickable(d, HitGlyph()))
                     {
-                        HardwareCursor.Apply(__instance.DefaultColor(0), __instance.mousesize.x);
+                        c = d.DefaultColor(0);
                     }
                 }
                 catch (Exception e)
                 {
-                    Plugin.Log.LogError($"Update postfix failed: {e}");
+                    Plugin.Log.LogError($"Cursor prefix failed: {e}");
                 }
             }
         }
