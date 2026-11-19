@@ -192,8 +192,20 @@ namespace ModSettings
                     throw new FormatException($"a number's exponent is larger than {MaxExponent}");
                 }
             }
-            return Global.StringToListString(phrase.Trim()).Where(w => w != "" && !w.StartsWith("(") && !w.StartsWith("[")).ToList();
+            // A ( token anywhere in a line turns off the game's number parsing for all of it.
+            var kept = string.Join(" ", phrase.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Where(t => !t.StartsWith("(")));
+            return kept == ""
+                ? new List<string>()
+                : Global.StringToListString(kept).Where(w => w != "" && !w.StartsWith("(") && !w.StartsWith("[")).ToList();
         }
+
+        // The empty cell: it takes a cell but draws no glyph.
+        internal const string Gap = ".";
+
+        // Tokens Draw.Write draws as something other than one cell's glyph, which a setting's row
+        // could not be laid out with: line and page breaks, buttons, and underline brackets.
+        private static bool Unsupported(string token) =>
+            token == "newline" || token == "newpage" || token.StartsWith("*") || token.StartsWith("{") || token.StartsWith("}");
 
         private static Setting Read(ConfigEntryBase entry)
         {
@@ -206,9 +218,14 @@ namespace ModSettings
             {
                 return null;
             }
+            var words = Words(label);
+            if (words.Any(Unsupported))
+            {
+                throw new FormatException("its label holds a line break, button, or bracket token");
+            }
             var quoted = tags.TryGetValue(QuotedKey, out var q) && string.Equals(q?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
             var page = tags.TryGetValue(PageKey, out var p) ? Words(p) : new List<string>();
-            return new Setting { Entry = entry, Label = Words(label), Quoted = quoted, Choices = Choices(entry, tags), Page = page };
+            return new Setting { Entry = entry, Label = words, Quoted = quoted, Choices = Choices(entry, tags), Page = page };
         }
 
         // True when this gate token passes, as the game checks the gate at the start of a menu
@@ -250,9 +267,9 @@ namespace ModSettings
                     glyph = value is bool b ? (b ? "yes" : "no") : null;
                 }
                 var words = Words(glyph);
-                if (words.Count != 1)
+                if (words.Count != 1 || words[0] == Gap || Unsupported(words[0]))
                 {
-                    // Every choice needs exactly one glyph; otherwise edit the value as text.
+                    // Every choice needs exactly one drawn glyph; otherwise edit the value as text.
                     return null;
                 }
                 choices.Add((words[0], value));

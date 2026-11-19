@@ -326,10 +326,12 @@ namespace ModSettings
                         continue;
                     }
                     var setting = page.Rows[rows[row.Key]].Setting;
-                    var label = glyphs.Take(setting.Label.Count).ToList();
+                    // Empty cells in the label take a cell but draw no glyph.
+                    var drawn = setting.Label.Count(t => t != Glyphs.Gap);
+                    var label = glyphs.Take(drawn).ToList();
                     if (setting.Choices != null)
                     {
-                        var options = glyphs.Skip(setting.Label.Count).ToList();
+                        var options = glyphs.Skip(drawn).ToList();
                         for (var i = 0; i < options.Count && i < setting.Choices.Count; i++)
                         {
                             var value = setting.Choices[i].Value;
