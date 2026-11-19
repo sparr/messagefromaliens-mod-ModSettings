@@ -44,8 +44,7 @@ namespace ModSettings
         // A page of settings: the mod's own, or one of its pages opened from a line on it.
         internal sealed class Page
         {
-            internal Mod Mod;
-            // The page's name, as the game names pages, and as glyphs.
+            // The page's name, as the game names pages, and as glyphs (for pages opened from a line).
             internal string Title;
             internal List<string> Words;
             internal readonly List<Row> Rows = new List<Row>();
@@ -119,17 +118,29 @@ namespace ModSettings
                 }
                 if (settings.Count > 0)
                 {
-                    mods.Add(Build(new Mod { Title = string.Join(" ", words), Settings = settings }, words));
+                    // Plugins that name themselves alike, such as two in one assembly, share a
+                    // page, since pages are found by their names.
+                    var title = string.Join(" ", words);
+                    var mod = mods.FirstOrDefault(m => m.Title == title);
+                    if (mod == null)
+                    {
+                        mods.Add(mod = new Mod { Title = title, Settings = new List<Setting>() });
+                    }
+                    mod.Settings.AddRange(settings);
                 }
+            }
+            foreach (var mod in mods)
+            {
+                Build(mod);
             }
             return mods;
         }
 
         // Lays out a mod's pages: its own page gets each setting with no page, and one line per
         // page, where that page's first setting is.
-        private static Mod Build(Mod mod, List<string> words)
+        private static void Build(Mod mod)
         {
-            mod.Root = new Page { Mod = mod, Title = mod.Title, Words = words };
+            mod.Root = new Page { Title = mod.Title };
             var pages = new Dictionary<string, Page>();
             foreach (var setting in mod.Settings)
             {
@@ -141,12 +152,11 @@ namespace ModSettings
                 var title = string.Join(" ", setting.Page);
                 if (!pages.TryGetValue(title, out var page))
                 {
-                    pages[title] = page = new Page { Mod = mod, Title = title, Words = setting.Page };
+                    pages[title] = page = new Page { Title = title, Words = setting.Page };
                     mod.Root.Rows.Add(new Row { Link = page });
                 }
                 page.Rows.Add(new Row { Setting = setting });
             }
-            return mod;
         }
 
         // Problems are logged once each, since discovery runs again on every visit to the menu.
