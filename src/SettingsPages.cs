@@ -419,6 +419,10 @@ namespace ModSettings
             input.textComponent.alignment = TextAlignmentOptions.Left;
             input.onSelect.RemoveAllListeners();
             input.onEndEdit.RemoveAllListeners();
+            // Arrow keys stay in the field instead of moving the selection to a nearby label.
+            var nav = input.navigation;
+            nav.mode = UnityEngine.UI.Navigation.Mode.None;
+            input.navigation = nav;
             var field = new Field { Input = input };
             fields.Add(field);
             input.onEndEdit.AddListener(text => Apply(field, text));
@@ -441,6 +445,14 @@ namespace ModSettings
                 Plugin.Log.LogWarning($"{entry.Definition}: \"{text}\" is not a valid value: {e.Message}");
             }
             field.Input.text = Display(field.Setting);
+            // An edit that ends without a click, as on Enter or Escape, leaves the field selected,
+            // so the next key would act on it. The game's labels let go the same way in
+            // AlienCharacter.EndEdit.
+            var es = EventSystem.current;
+            if (es != null && !es.alreadySelecting && !field.Input.isFocused && es.currentSelectedGameObject == field.Input.gameObject)
+            {
+                es.SetSelectedGameObject(null);
+            }
             Manager?.UpdateText();
         }
 
