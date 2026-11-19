@@ -206,7 +206,9 @@ namespace ModSettings
                     var page = OpenPage(d);
                     if (page != null)
                     {
-                        if (s == page.Title)
+                        // Draw.UpdateText1 asks for the page's text under its title with numbers
+                        // folded into decimal, as Global.ReverseParse writes them.
+                        if (s == page.Title || s == Global.MergeString(Global.ReverseParse(page.Title)))
                         {
                             __result = PageRows(page).Text;
                             return false;
