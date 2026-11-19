@@ -355,6 +355,8 @@ namespace ModSettings
                             field.X0 = first;
                             field.X1 = last;
                             field.Y = y;
+                            // The game recolors only its own labels when the color scheme changes.
+                            field.Input.textComponent.color = d.DefaultColor(0);
                             if (!field.Input.isFocused)
                             {
                                 field.Input.text = Display(setting);
@@ -415,7 +417,6 @@ namespace ModSettings
             }
             input.characterLimit = CharacterLimit;
             input.richText = false;
-            input.textComponent.color = d.DefaultColor(0);
             input.textComponent.alignment = TextAlignmentOptions.Left;
             input.onSelect.RemoveAllListeners();
             input.onEndEdit.RemoveAllListeners();
