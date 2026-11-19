@@ -248,7 +248,13 @@ namespace ModSettings
             }
             else if (type.IsEnum)
             {
-                values = Enum.GetValues(type).Cast<object>();
+                // A flags value can hold several flags at once, which single choices cannot show.
+                if (type.IsDefined(typeof(FlagsAttribute), false))
+                {
+                    return null;
+                }
+                // Members that share a value are one choice.
+                values = Enum.GetValues(type).Cast<object>().Distinct();
             }
             else if (entry.Description.AcceptableValues?.GetType().GetProperty("AcceptableValues")?.GetValue(entry.Description.AcceptableValues) is Array list)
             {
@@ -261,8 +267,12 @@ namespace ModSettings
             var choices = new List<(string, object)>();
             foreach (var value in values)
             {
-                var key = TomlTypeConverter.ConvertToString(value, type);
-                if (!tags.TryGetValue(ValuePrefix + key, out var glyph))
+                // An enum value's tag may use any of the names that share the value.
+                var keys = type.IsEnum
+                    ? Enum.GetNames(type).Where(n => Equals(Enum.Parse(type, n), value)).Prepend(TomlTypeConverter.ConvertToString(value, type))
+                    : new[] { TomlTypeConverter.ConvertToString(value, type) };
+                string glyph = null;
+                if (!keys.Any(k => tags.TryGetValue(ValuePrefix + k, out glyph)))
                 {
                     glyph = value is bool b ? (b ? "yes" : "no") : null;
                 }
