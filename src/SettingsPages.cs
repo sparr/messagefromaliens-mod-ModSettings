@@ -479,13 +479,24 @@ namespace ModSettings
             {
                 return;
             }
-            try
+            // Nothing typed, or Escape: storing the shown text again could still change the value,
+            // since it is not always what the converter reads back.
+            if (text != Display(field.Setting))
             {
-                entry.BoxedValue = TomlTypeConverter.ConvertToValue(field.Setting.Quoted ? "\"" + text + "\"" : text, entry.SettingType);
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.LogWarning($"{entry.Definition}: \"{text}\" is not a valid value: {e.Message}");
+                try
+                {
+                    var value = TomlTypeConverter.ConvertToValue(field.Setting.Quoted ? "\"" + text + "\"" : text, entry.SettingType);
+                    var problem = Problem(entry, text, value);
+                    if (problem != null)
+                    {
+                        throw new FormatException(problem);
+                    }
+                    entry.BoxedValue = value;
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log.LogWarning($"{entry.Definition}: \"{text}\" is not a valid value: {e.Message}");
+                }
             }
             field.Input.text = Display(field.Setting);
             // An edit that ends without a click, as on Enter or Escape, leaves the field selected,
@@ -497,6 +508,26 @@ namespace ModSettings
                 es.SetSelectedGameObject(null);
             }
             Manager?.UpdateText();
+        }
+
+        // Some converters accept text they cannot read and return something else, and setting the
+        // value would then quietly replace it. Null when the value is what the text says.
+        private static string Problem(ConfigEntryBase entry, string text, object value)
+        {
+            if (entry.Description.AcceptableValues != null && !entry.Description.AcceptableValues.IsValid(value))
+            {
+                return "it is not one of the allowed values";
+            }
+            var type = entry.SettingType;
+            if (type.IsEnum && !type.IsDefined(typeof(FlagsAttribute), false) && !Enum.IsDefined(type, value))
+            {
+                return "it is not one of the choices";
+            }
+            if (value is KeyboardShortcut shortcut && shortcut.MainKey == KeyCode.None && text.Trim() != "" && !text.Trim().Equals("None", StringComparison.OrdinalIgnoreCase))
+            {
+                return "it is not a key or a key combination";
+            }
+            return null;
         }
 
         private static AlienCharacter HitGlyph()
