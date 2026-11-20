@@ -20,7 +20,7 @@ Other mods do not need to name this mod as a dependency. Just add an assembly at
 [assembly: AssemblyMetadata("MessageFromAliens.Name", "alien glyph ids go here")]
 ```
 
-Then tag each setting's `ConfigDescription` with a `Dictionary<string, string>`:
+Then tag each setting's `ConfigDescription` with a `Dictionary<string, string>`. Only settings bound in the plugin's own `Config` are shown, not ones in other `ConfigFile` objects.
 
 ```csharp
 Config.Bind("Section", "Key", true, new ConfigDescription("English description", null,
@@ -71,7 +71,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 |---|---|
 | `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. |
 | `Draw.CurrentPageIsMenu` | Postfix: true on the menu of mods, so its lines are drawn, highlighted, and clicked like a menu's. |
-| `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods opens. |
+| `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods is opened from the settings page. |
 | `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |
 | `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. |
 | `HardwareCursor.Apply` | Prefix: gives the cursor the clickable color over the settings page's new row, over choices, and over lines that open pages. |
@@ -79,4 +79,4 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 | `Global.SetWin` | Prefix: never records the menu of mods as won. |
 | `Draw.CurrentPageIsRiddle` | Postfix: false on the menu of mods and the mods' pages, whatever their names. |
 
-The plugin's `LateUpdate` handles clicks on those, since the game ignores clicks on pages it does not know.
+The plugin's `LateUpdate` handles clicks on those, since the game ignores clicks on the rows it adds and on pages it does not know.
