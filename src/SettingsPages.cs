@@ -13,7 +13,8 @@ namespace ModSettings
     // Adds a row to the game's settings page that opens a menu of mods, and gives each mod a page
     // laid out like the settings page: a row per setting, its name in glyphs, then "." and its
     // choices, the current one boxed, and a line for each of the mod's other pages. Settings
-    // without choice glyphs get a text field instead.
+    // without choice glyphs get a text field instead, and settings with too many choices for two
+    // lines a page of their choices, opened from their row.
     internal static class SettingsPages
     {
         // The game's settings page, and the name of its early, shorter text.
@@ -42,6 +43,8 @@ namespace ModSettings
             internal AlienCharacter Glyph;
             internal Glyphs.Setting Setting;
             internal object Value;
+            // On a page of one setting's choices: go back to the page before once chosen.
+            internal bool Return;
         }
 
         private sealed class Field
@@ -67,25 +70,26 @@ namespace ModSettings
             d != null && d.current_page == ListPage && Parent(d, 1) == GamePage;
 
         // The settings page that is open, if any: a mod's own page, opened from the menu of mods,
-        // or one of its other pages, opened from its own page.
+        // or a page opened from a line on one of its pages, following the pages opened since.
         private static Glyphs.Page OpenPage(Draw d)
         {
-            if (d == null)
+            var stack = d?.parent_page;
+            if (stack == null || stack.Count == 0 || stack[stack.Count - 1] != d.current_page)
             {
                 return null;
             }
-            if (Parent(d, 1) == ListPage && Parent(d, 2) == GamePage)
+            var list = stack.LastIndexOf(ListPage);
+            if (list < 1 || stack[list - 1] != GamePage || list + 1 >= stack.Count)
             {
-                mods ??= Glyphs.Mods();
-                return mods.FirstOrDefault(m => m.Root.Key == d.current_page)?.Root;
+                return null;
             }
-            if (Parent(d, 2) == ListPage && Parent(d, 3) == GamePage)
+            mods ??= Glyphs.Mods();
+            var page = mods.FirstOrDefault(m => m.Root.Key == stack[list + 1])?.Root;
+            for (var i = list + 2; page != null && i < stack.Count; i++)
             {
-                mods ??= Glyphs.Mods();
-                var mod = mods.FirstOrDefault(m => m.Root.Key == Parent(d, 1));
-                return mod?.Root.Rows.Select(r => r.Link).FirstOrDefault(p => p != null && p.Key == d.current_page);
+                page = page.Rows.Select(r => r.Link).FirstOrDefault(p => p != null && p.Key == stack[i]);
             }
-            return null;
+            return page;
         }
 
         // The page n levels above the current one.
@@ -101,15 +105,27 @@ namespace ModSettings
         // name of a page it opens. A row that would not fit in the lines left on a page starts the
         // next page instead, so no row is split between pages. Also the page row of each line, as
         // Draw.Write numbers lines, or -1 for a line that only starts a page.
+        // A page of one setting's choices has a line for each RowWidth of them instead, and its
+        // rows are those lines.
         private static (string Text, List<int> Rows) PageRows(Glyphs.Page page)
         {
             var text = new StringBuilder();
             var rows = new List<int>();
+            if (page.Chooser != null)
+            {
+                var glyphs = page.Chooser.Choices.Select(c => c.Glyph).ToList();
+                for (var i = 0; i * RowWidth < glyphs.Count; i++)
+                {
+                    text.Append(i > 0 ? " newline " : "").Append(Line(glyphs.Skip(i * RowWidth).Take(RowWidth)));
+                    rows.Add(i);
+                }
+                return (text.ToString(), rows);
+            }
             var used = 0;
             for (var i = 0; i < page.Rows.Count; i++)
             {
                 var row = page.Rows[i];
-                var tokens = row.Setting == null ? row.Link.Words : RowTokens(row.Setting);
+                var tokens = row.Setting == null ? row.Link.Words.Take(Glyphs.MaxLabel).ToList() : RowTokens(row);
                 var lines = Lines(tokens.Count);
                 if (i > 0)
                 {
@@ -134,12 +150,18 @@ namespace ModSettings
             return (text.ToString(), rows);
         }
 
-        // A setting's row: its name, an empty cell, then its choices, or the empty cells its text
-        // field covers. The field fills the rest of the line, or the next line when too little of
-        // it is left.
-        private static List<string> RowTokens(Glyphs.Setting setting)
+        // A setting's row: its name, an empty cell, then its choices, the current one of choices on
+        // a page of their own, or the empty cells its text field covers. The field fills the rest
+        // of the line, or the next line when too little of it is left.
+        private static List<string> RowTokens(Glyphs.Row row)
         {
+            var setting = row.Setting;
             var tokens = setting.Label.Append(".").ToList();
+            if (row.Link != null)
+            {
+                tokens.AddRange(setting.Choices.Where(c => Equals(c.Value, setting.Entry.BoxedValue)).Take(1).Select(c => c.Glyph));
+                return tokens;
+            }
             if (setting.Choices != null)
             {
                 tokens.AddRange(setting.Choices.Select(c => c.Glyph));
@@ -401,32 +423,42 @@ namespace ModSettings
                         continue;
                     }
                     var glyphs = row.ToList();
+                    if (page.Chooser != null)
+                    {
+                        for (var i = 0; i < glyphs.Count; i++)
+                        {
+                            var index = rows[row.Key] * RowWidth + i;
+                            if (index < page.Chooser.Choices.Count)
+                            {
+                                AddChoice(d, glyphs[i], page.Chooser, page.Chooser.Choices[index].Value, true);
+                            }
+                        }
+                        continue;
+                    }
                     var link = page.Rows[rows[row.Key]].Link;
+                    var setting = page.Rows[rows[row.Key]].Setting;
+                    // Empty cells in the label take a cell but draw no glyph.
+                    var drawn = setting == null ? glyphs.Count : setting.Label.Count(t => t != Glyphs.Gap);
+                    var label = glyphs.Take(drawn).ToList();
                     if (link != null)
                     {
-                        // Underlined like a menu line.
+                        // The whole row opens the page. Its name is underlined like a menu line.
                         foreach (var glyph in glyphs)
                         {
                             links.Add((glyph, link));
+                        }
+                        foreach (var glyph in label)
+                        {
                             d.selected.Add(d.DrawLineRenderer(glyph.sp.transform.position + new Vector3(-0.45f, -0.92f), glyph.sp.transform.position + new Vector3(0.45f, -0.92f), 3));
                         }
                         continue;
                     }
-                    var setting = page.Rows[rows[row.Key]].Setting;
-                    // Empty cells in the label take a cell but draw no glyph.
-                    var drawn = setting.Label.Count(t => t != Glyphs.Gap);
-                    var label = glyphs.Take(drawn).ToList();
                     if (setting.Choices != null)
                     {
                         var options = glyphs.Skip(drawn).ToList();
                         for (var i = 0; i < options.Count && i < setting.Choices.Count; i++)
                         {
-                            var value = setting.Choices[i].Value;
-                            choices.Add(new Choice { Glyph = options[i], Setting = setting, Value = value });
-                            if (Equals(value, setting.Entry.BoxedValue))
-                            {
-                                d.selected.Add(d.DrawRectRenderer(1f, 1f, options[i].sp.transform.position, 2));
-                            }
+                            AddChoice(d, options[i], setting, setting.Choices[i].Value, false);
                         }
                     }
                     else if (label.Count > 0 && Slot(d, label[0], out var x0, out var y0))
@@ -463,6 +495,16 @@ namespace ModSettings
             {
                 fields[i].Setting = null;
                 fields[i].Input.gameObject.SetActive(false);
+            }
+        }
+
+        // A clickable choice glyph, boxed when it is the current value.
+        private static void AddChoice(Draw d, AlienCharacter glyph, Glyphs.Setting setting, object value, bool back)
+        {
+            choices.Add(new Choice { Glyph = glyph, Setting = setting, Value = value, Return = back });
+            if (Equals(value, setting.Entry.BoxedValue))
+            {
+                d.selected.Add(d.DrawRectRenderer(1f, 1f, glyph.sp.transform.position, 2));
             }
         }
 
@@ -625,7 +667,14 @@ namespace ModSettings
                     {
                         var choice = choices.First(c => c.Glyph == glyph);
                         choice.Setting.Entry.BoxedValue = choice.Value;
-                        d.UpdateText();
+                        if (choice.Return)
+                        {
+                            d.ToParentPage();
+                        }
+                        else
+                        {
+                            d.UpdateText();
+                        }
                     }
                 }
             }

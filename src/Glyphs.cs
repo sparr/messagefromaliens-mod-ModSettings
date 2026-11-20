@@ -35,6 +35,9 @@ namespace ModSettings
         // Draw.Write draws no glyph and takes no cell for a token starting with [. Only one that
         // starts a line after a newline is a gate, so at the start of a page name it is inert.
         internal const string KeyTag = "[modsettings]";
+        // Pages that list one setting's choices get their own tag, so they never share a key with
+        // a page of settings of the same name.
+        internal const string ChoicesKeyTag = "[modsettings-choices]";
 
         internal sealed class Mod
         {
@@ -52,11 +55,15 @@ namespace ModSettings
             internal List<string> Words;
             // The name the page is opened under: its title after a token the game does not draw.
             // The game runs its own code for some pages by name, and no game page has this one.
-            internal string Key => KeyTag + " " + Title;
+            internal string Key => (Chooser == null ? KeyTag : ChoicesKeyTag) + " " + Title;
             internal readonly List<Row> Rows = new List<Row>();
+            // The setting whose choices this page lists, instead of rows, when they do not fit on
+            // the setting's row.
+            internal Setting Chooser;
         }
 
-        // One row of a page: a setting, or a line opening another page.
+        // One row of a page: a setting, a line opening another page, or both, for a setting whose
+        // choices are on a page of their own.
         internal sealed class Row
         {
             internal Setting Setting;
@@ -150,9 +157,14 @@ namespace ModSettings
             var pages = new Dictionary<string, Page>();
             foreach (var setting in mod.Settings)
             {
+                var row = new Row { Setting = setting };
+                if (setting.Choices != null && (setting.Choices.Count > MaxLabel || setting.Label.Count + 1 + setting.Choices.Count > MaxRowCells))
+                {
+                    row.Link = new Page { Title = string.Join(" ", setting.Label), Words = setting.Label, Chooser = setting };
+                }
                 if (setting.Page.Count == 0)
                 {
-                    mod.Root.Rows.Add(new Row { Setting = setting });
+                    mod.Root.Rows.Add(row);
                     continue;
                 }
                 var title = string.Join(" ", setting.Page);
@@ -161,7 +173,7 @@ namespace ModSettings
                     pages[title] = page = new Page { Title = title, Words = setting.Page };
                     mod.Root.Rows.Add(new Row { Link = page });
                 }
-                page.Rows.Add(new Row { Setting = setting });
+                page.Rows.Add(row);
             }
         }
 
@@ -206,8 +218,12 @@ namespace ModSettings
                 : Global.StringToListString(kept).Where(w => w != "" && !w.StartsWith("(") && !w.StartsWith("[")).ToList();
         }
 
-        // The cells of one line of a page, as Draw.Write lays it out.
-        internal const int MaxFieldLabel = 12;
+        // The cells of one line of a page, as Draw.Write lays it out. A label is cut to one line.
+        internal const int MaxLabel = 12;
+        // The cells of a row two lines long: a row too long for one line continues on the next,
+        // one cell in. A setting with more choices than fit on a line, or whose label, empty cell,
+        // and choices take more than two lines, lists its choices on a page of their own.
+        internal const int MaxRowCells = 2 * MaxLabel - 1;
 
         // The empty cell: it takes a cell but draws no glyph.
         internal const string Gap = ".";
@@ -236,10 +252,10 @@ namespace ModSettings
             var quoted = tags.TryGetValue(QuotedKey, out var q) && string.Equals(q?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
             var page = tags.TryGetValue(PageKey, out var p) ? Words(p) : new List<string>();
             var choices = Choices(entry, tags);
-            // A text field's label is cut to one line, so the label and its field always fit on a page.
-            if (choices == null && words.Count > MaxFieldLabel)
+            // Every label is cut to one line, so each setting's row takes at most two lines.
+            if (words.Count > MaxLabel)
             {
-                words = words.Take(MaxFieldLabel).ToList();
+                words = words.Take(MaxLabel).ToList();
             }
             return new Setting { Entry = entry, Label = words, Quoted = quoted, Choices = choices, Page = page };
         }

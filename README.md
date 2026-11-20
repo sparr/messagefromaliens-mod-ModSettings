@@ -8,7 +8,7 @@ Install BepInEx first, if you haven't already, as described under [Requirements]
 
 ## Use
 
-The game's settings page gets one more row, this mod's name in glyphs, just above its last row. Clicking it opens a menu of mods, one line per mod that names itself in glyphs and has at least one setting to show. Clicking a mod opens its page, laid out like the game's settings page: one row per setting, its name in glyphs, then an empty cell and its choices, with the current choice boxed. Clicking a choice changes the setting. Settings without a glyph for each value, such as most number and text settings, appear as text fields instead of clickable glyphs. A mod can also put settings on sub-pages opened from the mod's settings page.
+The game's settings page gets one more row, this mod's name in glyphs, just above its last row. Clicking it opens a menu of mods, one line per mod that names itself in glyphs and has at least one setting to show. Clicking a mod opens its page, laid out like the game's settings page: one row per setting, its name in glyphs, then an empty cell and its choices, with the current choice boxed. Clicking a choice changes the setting. Settings without a glyph for each value, such as most number and text settings, appear as text fields instead of clickable glyphs. A setting with more than 12 choices, or too many to fit in two lines after its name, shows its name, an empty cell, and its current choice; clicking that row opens a page of all its choices, 12 to a line, and clicking one sets it and goes back. Every setting's row takes one or two lines. A mod can also put settings on sub-pages opened from the mod's settings page.
 
 Changes apply as they would from the `.cfg` file, and BepInEx saves them to it. Some settings change immediately, some only on a game restart.
 
@@ -32,9 +32,9 @@ Config.Bind("Section", "Key", true, new ConfigDescription("English description",
 
 | Key | Meaning |
 |---|---|
-| `MessageFromAliens.Label` | The setting's name in glyphs. Required; settings without it are not shown. A setting shown as a text field shows only the first 12 glyphs, so that the name fits on one line. |
+| `MessageFromAliens.Label` | The setting's name in glyphs. Required; settings without it are not shown. Only the first 12 glyphs are shown, so that the name fits on one line. A setting shown as choices lists them after its name when it has at most 12 and the name, an empty cell, and the choices fit in 23 cells (two lines); otherwise its choices go on a page of their own, opened from its row. |
 | `MessageFromAliens.Value.<value>` | The glyph for one value, keyed by the value as written in the `.cfg` file, such as `MessageFromAliens.Value.Fast`. |
-| `MessageFromAliens.Page` | The name in glyphs of the page the setting is on. Optional; settings without it are on the mod's own page. Settings with the same name share a page, in the order they were bound. |
+| `MessageFromAliens.Page` | The name in glyphs of the page the setting is on. Optional; settings without it are on the mod's own page. Settings with the same name share a page, in the order they were bound. The line that opens the page shows only the first 12 glyphs. |
 | `MessageFromAliens.Quoted` | `true` if the `.cfg` file writes the value in double quotes, as a setting must to keep leading or trailing spaces. The text field shows and takes the value without them. |
 | `MessageFromAliens.Gate` | Optional. A gate token, as the game's text files put at the start of a menu line, such as the one that opens a game: a page title with its words joined by `-`, in brackets. The setting is shown only once that gate passes, as the game decides for its own menu lines, wherever the setting's row falls on its page. A mod can hide settings for parts of the game the player has not reached. A mod none of whose settings are shown is left out of the menu. |
 
