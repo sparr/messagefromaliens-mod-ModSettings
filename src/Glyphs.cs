@@ -206,6 +206,9 @@ namespace ModSettings
                 : Global.StringToListString(kept).Where(w => w != "" && !w.StartsWith("(") && !w.StartsWith("[")).ToList();
         }
 
+        // The cells of one line of a page, as Draw.Write lays it out.
+        internal const int MaxFieldLabel = 12;
+
         // The empty cell: it takes a cell but draws no glyph.
         internal const string Gap = ".";
 
@@ -232,7 +235,13 @@ namespace ModSettings
             }
             var quoted = tags.TryGetValue(QuotedKey, out var q) && string.Equals(q?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
             var page = tags.TryGetValue(PageKey, out var p) ? Words(p) : new List<string>();
-            return new Setting { Entry = entry, Label = words, Quoted = quoted, Choices = Choices(entry, tags), Page = page };
+            var choices = Choices(entry, tags);
+            // A text field's label is cut to one line, so the label and its field always fit on a page.
+            if (choices == null && words.Count > MaxFieldLabel)
+            {
+                words = words.Take(MaxFieldLabel).ToList();
+            }
+            return new Setting { Entry = entry, Label = words, Quoted = quoted, Choices = choices, Page = page };
         }
 
         // True when this gate token passes, as the game checks the gate at the start of a menu

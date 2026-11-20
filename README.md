@@ -32,7 +32,7 @@ Config.Bind("Section", "Key", true, new ConfigDescription("English description",
 
 | Key | Meaning |
 |---|---|
-| `MessageFromAliens.Label` | The setting's name in glyphs. Required; settings without it are not shown. |
+| `MessageFromAliens.Label` | The setting's name in glyphs. Required; settings without it are not shown. A setting shown as a text field shows only the first 12 glyphs, so that the name fits on one line. |
 | `MessageFromAliens.Value.<value>` | The glyph for one value, keyed by the value as written in the `.cfg` file, such as `MessageFromAliens.Value.Fast`. |
 | `MessageFromAliens.Page` | The name in glyphs of the page the setting is on. Optional; settings without it are on the mod's own page. Settings with the same name share a page, in the order they were bound. |
 | `MessageFromAliens.Quoted` | `true` if the `.cfg` file writes the value in double quotes, as a setting must to keep leading or trailing spaces. The text field shows and takes the value without them. |
