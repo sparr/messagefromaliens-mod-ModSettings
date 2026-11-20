@@ -42,6 +42,39 @@ A `bool` setting is shown as choices, and needs no value tags. An enum setting, 
 
 Examples: https://github.com/sparr/messagefromaliens-mod-CompoundTranslations/blob/60cd37f99da6bc7d56d026ba568f2ea9634ee138/src/Plugin.cs#L47C1-L95C4
 
+## Unlock messages
+
+A mod feature that unlocks with a gate can tell the player so, as the game's own text tells the player about the games and chapters it unlocks. Declare a message with an assembly attribute, as many as needed:
+
+```csharp
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<chapter>-quiz-3] alien glyph ids go here")]
+```
+
+The value is a gate token, then the message's words. The gate token is the same as for `MessageFromAliens.Gate`, so a setting and its message can share one. Mod Settings adds the message as a line at the end of the explanation of the chapter whose quizzes the gate counts, the page the explain button shows on that chapter's menu, under the same gate token, so the game draws the line only once the gate passes. Where the gate counts the chapter's quizzes, as `[<chapter>-quiz-<n>]` with `n` a whole number does, the message is also added to the page the game shows in the left panel when the chapter's wins reach `n`, and that page is shown even for a count the game has no page for.
+
+- **Choosing the page:** with the key `MessageFromAliens.Unlock`, the gate must name a chapter's quizzes, as `[<chapter>-quiz-...]`; the chapter is the part before `-quiz-`, with `-` read as a space. For any other gate, such as one on a page that is not a quiz, name the page whose explanation gets the line: `MessageFromAliens.Unlock.<page>`, with the page's name as the game's text files write it, its words separated by spaces. The page must have an explanation.
+- **On a setting:** the same keys work in a setting's tags. There the gate token can be left out, and the setting's `MessageFromAliens.Gate` is used. The setting does not need a label. Use the assembly attribute for a message about a feature that has no setting, or that unlocks with a different gate than its settings.
+- **Words:** game word IDs separated by spaces, as in the game's text files, at least one glyph. `newline` starts another line under the same gate. Page breaks, buttons, brackets, and further gate tokens are not allowed. Write it in words the player can translate by the time the gate passes.
+- **Duplicates:** a line declared more than once with the same gate, as by two settings, is added once.
+- **Problems** are logged as warnings, once each, and that message is left out.
+- Mod Settings reads the declarations the first time the game asks for an explanation or a win count page. It reads a setting's gate then; a gate changed later is not seen.
+
+Examples:
+
+```csharp
+// Added to the chapter's explanation, and to the page shown when its wins reach 2.
+// Drawn once 2 of the chapter's quizzes are won.
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<chapter>-quiz-2] <word> <word> <word>")]
+// Added to the explanation of the page named <page>; drawn once the page <won-page> is won.
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock.<page>", "[<won-page>] <word> <word>")]
+
+// In a setting's tags, with the setting's gate.
+["MessageFromAliens.Gate"] = "[<chapter>-quiz-4]",
+["MessageFromAliens.Unlock"] = "<word> <word> <word>",
+```
+
+`<chapter>`, `<page>`, `<won-page>`, and `<word>` stand for game word IDs; in a gate token, a page's words are joined by `-`. A gate's quiz number is checked as the game checks menu lines: a whole number counts the chapter's won quizzes, and anything else, such as a number written with a place (`1e1`), names one quiz page. Here, `quiz` stands for the game's own word for quiz, the word before the number in every quiz page's title; Content Packs' `DumpGameText` setting writes the game text that shows it.
+
 ## Requirements
 
 - BepInEx 5.4.23.6 or later, `BepInEx_win_x64` build, unzipped into the game folder. Tested with Unity 6000.6.8f1.
@@ -69,7 +102,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 
 | Method | Patch |
 |---|---|
-| `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. |
+| `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. A second postfix adds mods' unlock messages to explanations and to the pages shown when a chapter's wins reach a count. |
 | `Draw.CurrentPageIsMenu` | Postfix: true on the menu of mods, so its lines are drawn, highlighted, and clicked like a menu's. |
 | `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods is opened from the settings page, and opens a mod's page under a name no game page has, so the game runs none of its own code for a page of the same name. |
 | `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |

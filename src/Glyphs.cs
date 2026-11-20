@@ -180,7 +180,7 @@ namespace ModSettings
         // Problems are logged once each, since discovery runs again on every visit to the menu.
         private static readonly HashSet<string> warned = new HashSet<string>();
 
-        private static void Warn(string key, string message)
+        internal static void Warn(string key, string message)
         {
             if (warned.Add(key))
             {
