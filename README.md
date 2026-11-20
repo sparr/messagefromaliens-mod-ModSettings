@@ -66,13 +66,13 @@ A mod feature that unlocks with a gate can tell the player so in the game's own 
 The value is a gate token, then the feature's words. The gate token is the same as for `MessageFromAliens.Gate`, so a setting and its message can share one.
 
 - **Explanation lines:** for each alternative of the gate (each part between `|`), one line: "win n of the chapter's quizzes, unlock X". The terms of an alternative are joined by "and", as "win 3 of one chapter's quizzes and win 2 of another's, unlock X". A page term reads "win the page, unlock X". The line goes in the explanation of each chapter that a count term of the alternative counts. It is always shown, like the game's own. Mod Settings sorts these lines in with the game's own lines at the end of the explanation by count; at the same count, the game's come first, then mods' in the order of the mods' names and of their declarations.
-- **Win count pages:** for each count term, "you now unlock X" goes on that chapter's win count page for `n`. The game shows that page when the chapter's count of wins reaches `n`, and the line shows whenever the page does, as long as the alternative's other terms pass. Lines from "and" alternatives can so show on more than one page. The page shows even for a count the game has no page for (see [Win count pages](#win-count-pages)).
+- **Win count pages:** for each count term, "you now unlock X" goes on that chapter's win count page for `n`. The game shows that page when the chapter's count of wins reaches `n`, and the line shows whenever the page does, as long as the alternative's other terms pass. Lines from "and" alternatives can so show on more than one page. A win count page the game has no text for is added to the game's text, so the game shows it and other mods find it with the game's own (see [Win count pages](#win-count-pages)).
 - **Choosing the page:** with the key `MessageFromAliens.Unlock`, every alternative must have a count term whose chapter has an explanation. To put the explanation lines somewhere else, such as for a gate with only page terms, name the page whose explanation gets them: `MessageFromAliens.Unlock.<page>`, with the page's name as the game's text files write it, its words separated by spaces. The page must have an explanation. Count terms still put lines on win count pages.
 - **On a setting:** the same keys work in a setting's tags. There the gate token can be left out, and the setting's `MessageFromAliens.Gate` is used. The setting does not need a label. Use the assembly attribute for a message about a feature that has no setting, or that unlocks with a different gate than its settings.
 - **Words:** game word IDs separated by spaces, as in the game's text files, at least one glyph and one line. Line and page breaks, buttons, brackets, `(` tokens, and further gate tokens are not allowed. Write it in words the player can translate by the time the gate passes. A left panel line holds 12 glyphs and continues on the next row, one cell in; "win n of the chapter's quizzes, unlock" takes 5 to 7 glyphs before X, and "you now unlock" takes 3.
 - **Duplicates:** a line declared more than once, as by two settings, is added once to each page.
 - **Problems** are logged as warnings, once each, and that message is left out.
-- Mod Settings reads the declarations the first time the game asks for an explanation or a win count page. It reads a setting's gate then; a gate changed later is not seen.
+- Mod Settings reads the declarations when the game reads its text at startup, and again if the game's text or the set of loaded plugins changes. It reads a setting's gate then; a gate changed later is not seen.
 
 Examples:
 
@@ -96,6 +96,8 @@ Examples:
 ### Win count pages
 
 The game names a chapter's win count page `<chapter> unlock <n>` and shows it from `Global.SetWin`, through `Draw.UnlockMessage`, when a won quiz changes the chapter's count. That count is `Global.CountWin(<chapter>)`: every won page whose name starts with the chapter's. Lessons' names do not, so the count is the chapter's won quizzes, plus one for the chapter's menu once the chapter is finished. The game records the menu as won only when every line on it is won: every lesson read and every quiz solved. So during the chapter the count equals the quizzes won, and the page for `n` shows when the `n`th quiz is won. Mod Settings' lines follow the page, so they show with the game's own lines.
+
+Mod Settings adds each win count page that has mods' lines but no text of its own to `Global.alien_message["alieninfo"]`, in a postfix of `Global.Init`. Its text there holds all its lines; `Global.GetInfo` returns only those that show, and an empty string when none do. A mod that lists win count pages, as Interface Tweaks does, finds them by name with the game's own, and should leave out a page whose `Global.GetInfo("alieninfo", name)` is empty.
 
 ## Requirements
 
@@ -131,6 +133,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 | `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. |
 | `HardwareCursor.Apply` | Prefix: gives the cursor the clickable color over the settings page's new row, over choices, and over lines that open pages. |
 | `Global.GetWin` | Prefix: false for mods' names while the menu of mods is drawn, so a mod named like a won page is not drawn as won. A second prefix, run first, evaluates gate tokens that combine terms with `\|` and `+`, checking each term through `Global.GetWin`. |
+| `Global.Init` | Postfix: reads mods' unlock messages and adds the win count pages the game has no text for to its text. |
 | `Global.SetWin` | Prefix: never records the menu of mods as won. |
 | `Draw.CurrentPageIsRiddle` | Postfix: false on the menu of mods and the mods' pages, whatever their names. |
 | `Draw.GetHelp` | Prefix: opens a mod page's explanation, whatever the page's name. |

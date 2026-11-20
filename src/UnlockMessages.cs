@@ -19,7 +19,8 @@ namespace ModSettings
     // - "<you now unlock> <feature>" on each win count page, "<chapter> unlock <n>", for a count
     //   term. The game shows that page in the left panel when the chapter's count of wins reaches n.
     //   The line shows whenever the game would show the page, and the rest of its alternative
-    //   passes. The game shows the page even for a count it has no text for.
+    //   passes. Pages the game has no text for are added to its text, so the game shows them and
+    //   other mods find them as they find the game's own.
     internal static class UnlockMessages
     {
         internal const string Key = "MessageFromAliens.Unlock";
@@ -46,9 +47,31 @@ namespace ModSettings
         // Lines for explanations and for win count pages, by page name as the game stores it.
         private static Dictionary<string, List<ExplainLine>> explain;
         private static Dictionary<string, List<PageLine>> counts;
+        // Win count pages this mod added to the game's text, which has no lines of its own for them,
+        // and the part of the game's text they were added to.
+        private static HashSet<string> added = new HashSet<string>();
+        private static Dictionary<string, string> addedTo;
         // What the lines were found from: the game's text, and the loaded plugins.
         private static object builtFor;
         private static int builtPlugins;
+
+        // Every plugin has loaded by the time the game reads its text, so the win count pages are
+        // in the game's text before anything looks for them.
+        [HarmonyPatch(typeof(Global), nameof(Global.Init))]
+        private static class InitPatch
+        {
+            private static void Postfix()
+            {
+                try
+                {
+                    Build();
+                }
+                catch (Exception e)
+                {
+                    Glyphs.Warn("unlock messages", $"Unlock messages failed: {e}");
+                }
+            }
+        }
 
         [HarmonyPatch(typeof(Global), nameof(Global.GetInfo))]
         private static class GetInfoPatch
@@ -76,7 +99,7 @@ namespace ModSettings
                     if (counts.TryGetValue(key, out var page))
                     {
                         var shown = new List<string>();
-                        if (!string.IsNullOrEmpty(__result))
+                        if (!added.Contains(key) && !string.IsNullOrEmpty(__result))
                         {
                             shown.Add(__result);
                         }
@@ -181,9 +204,39 @@ namespace ModSettings
                     }
                 }
             }
+            AddPages(messages);
             if (lines > 0)
             {
-                Plugin.Log.LogInfo($"Added {lines} unlock message lines");
+                Plugin.Log.LogInfo($"Added {lines} unlock message lines, and {added.Count} win count pages the game has no text for");
+            }
+        }
+
+        // Puts each win count page that has lines but no text in the game's text, so the game shows
+        // it, and mods that list the game's win count pages list it. Its text there is every line
+        // it can show; GetInfo gives only the lines shown.
+        private static void AddPages(Dictionary<string, Dictionary<string, string>> messages)
+        {
+            if (!messages.TryGetValue(Category, out var text))
+            {
+                return;
+            }
+            if (!ReferenceEquals(text, addedTo))
+            {
+                addedTo = text;
+                added = new HashSet<string>();
+            }
+            foreach (var key in added.Where(k => !counts.ContainsKey(k)).ToList())
+            {
+                text.Remove(key);
+                added.Remove(key);
+            }
+            foreach (var pair in counts)
+            {
+                if (added.Contains(pair.Key) || !Exists(messages, pair.Key))
+                {
+                    text[pair.Key] = string.Join(" newline ", pair.Value.Select(l => l.Text).Distinct());
+                    added.Add(pair.Key);
+                }
             }
         }
 
