@@ -32,6 +32,9 @@ namespace ModSettings
         internal const string QuotedKey = "MessageFromAliens.Quoted";
         internal const string PageKey = "MessageFromAliens.Page";
         internal const string GateKey = "MessageFromAliens.Gate";
+        // Draw.Write draws no glyph and takes no cell for a token starting with [. Only one that
+        // starts a line after a newline is a gate, so at the start of a page name it is inert.
+        internal const string KeyTag = "[modsettings]";
 
         internal sealed class Mod
         {
@@ -47,6 +50,9 @@ namespace ModSettings
             // The page's name, as the game names pages, and as glyphs (for pages opened from a line).
             internal string Title;
             internal List<string> Words;
+            // The name the page is opened under: its title after a token the game does not draw.
+            // The game runs its own code for some pages by name, and no game page has this one.
+            internal string Key => KeyTag + " " + Title;
             internal readonly List<Row> Rows = new List<Row>();
         }
 

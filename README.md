@@ -71,12 +71,13 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 |---|---|
 | `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. |
 | `Draw.CurrentPageIsMenu` | Postfix: true on the menu of mods, so its lines are drawn, highlighted, and clicked like a menu's. |
-| `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods is opened from the settings page. |
+| `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods is opened from the settings page, and opens a mod's page under a name no game page has, so the game runs none of its own code for a page of the same name. |
 | `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |
 | `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. |
 | `HardwareCursor.Apply` | Prefix: gives the cursor the clickable color over the settings page's new row, over choices, and over lines that open pages. |
 | `Global.GetWin` | Prefix: false for mods' names while the menu of mods is drawn, so a mod named like a won page is not drawn as won. |
 | `Global.SetWin` | Prefix: never records the menu of mods as won. |
 | `Draw.CurrentPageIsRiddle` | Postfix: false on the menu of mods and the mods' pages, whatever their names. |
+| `Draw.GetHelp` | Prefix: opens a mod page's explanation, whatever the page's name. |
 
 The plugin's `LateUpdate` handles clicks on those, since the game ignores clicks on the rows it adds and on pages it does not know.

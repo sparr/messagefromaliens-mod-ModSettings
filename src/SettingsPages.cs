@@ -77,13 +77,13 @@ namespace ModSettings
             if (Parent(d, 1) == ListPage && Parent(d, 2) == GamePage)
             {
                 mods ??= Glyphs.Mods();
-                return mods.FirstOrDefault(m => m.Title == d.current_page)?.Root;
+                return mods.FirstOrDefault(m => m.Root.Key == d.current_page)?.Root;
             }
             if (Parent(d, 2) == ListPage && Parent(d, 3) == GamePage)
             {
                 mods ??= Glyphs.Mods();
-                var mod = mods.FirstOrDefault(m => m.Title == Parent(d, 1));
-                return mod?.Root.Rows.Select(r => r.Link).FirstOrDefault(p => p != null && p.Title == d.current_page);
+                var mod = mods.FirstOrDefault(m => m.Root.Key == Parent(d, 1));
+                return mod?.Root.Rows.Select(r => r.Link).FirstOrDefault(p => p != null && p.Key == d.current_page);
             }
             return null;
         }
@@ -169,11 +169,23 @@ namespace ModSettings
         {
             // Discover mods again each time the menu is opened from the settings page, so the list
             // matches what is loaded. Going back to it from a mod's page keeps the list.
-            private static void Prefix(string s)
+            // The game opens a clicked menu line by its drawn words, which are a mod's title; the
+            // mod's page is opened under its key instead.
+            private static void Prefix(Draw __instance, ref string s)
             {
                 if (s == ListPage)
                 {
                     mods = null;
+                    return;
+                }
+                if (mods != null && OnList(__instance))
+                {
+                    var title = s;
+                    var mod = mods.FirstOrDefault(m => m.Title == title);
+                    if (mod != null)
+                    {
+                        s = mod.Root.Key;
+                    }
                 }
             }
         }
@@ -208,14 +220,14 @@ namespace ModSettings
                     var page = OpenPage(d);
                     if (page != null)
                     {
-                        // Draw.UpdateText1 asks for the page's text under its title with numbers
+                        // Draw.UpdateText1 asks for the page's text under its name with numbers
                         // folded into decimal, as Global.ReverseParse writes them.
-                        if (s == page.Title || s == Global.MergeString(Global.ReverseParse(page.Title)))
+                        if (s == page.Key || s == Global.MergeString(Global.ReverseParse(page.Key)))
                         {
                             __result = PageRows(page).Text;
                             return false;
                         }
-                        if (s == page.Title + ExplainSuffix)
+                        if (s == page.Key + ExplainSuffix)
                         {
                             __result = ModExplanation;
                             return false;
@@ -294,6 +306,30 @@ namespace ModSettings
                 if (__result && (OnList(__instance) || OpenPage(__instance) != null))
                 {
                     __result = false;
+                }
+            }
+        }
+
+        // The explain button also tests the page's name for the quiz word. A mod page opens its own
+        // explanation, as the game's last case would.
+        [HarmonyPatch(typeof(Draw), nameof(Draw.GetHelp))]
+        private static class GetHelpPatch
+        {
+            private static bool Prefix(Draw __instance)
+            {
+                try
+                {
+                    if (OpenPage(__instance) == null)
+                    {
+                        return true;
+                    }
+                    __instance.PushLeftMessage(__instance.current_page + ExplainSuffix);
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log.LogError($"GetHelp prefix failed: {e}");
+                    return true;
                 }
             }
         }
@@ -583,7 +619,7 @@ namespace ModSettings
                     }
                     else if (links.Any(l => l.Glyph == glyph))
                     {
-                        d.ToPage(links.First(l => l.Glyph == glyph).Page.Title);
+                        d.ToPage(links.First(l => l.Glyph == glyph).Page.Key);
                     }
                     else
                     {
