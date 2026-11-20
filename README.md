@@ -74,5 +74,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 | `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods opens. |
 | `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |
 | `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. Postfix: shows the clickable cursor over the settings page's new row, over choices, and over lines that open pages. |
+| `Global.GetWin` | Prefix: false for mods' names while the menu of mods is drawn, so a mod named like a won page is not drawn as won. |
+| `Global.SetWin` | Prefix: never records the menu of mods as won. |
 
 The plugin's `LateUpdate` handles clicks on those, since the game ignores clicks on pages it does not know.

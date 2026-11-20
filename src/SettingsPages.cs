@@ -256,6 +256,29 @@ namespace ModSettings
             }
         }
 
+        // Being a menu also turns on the game's bookkeeping of wins, which checks every line and
+        // records the menu won when all of its lines are. A mod's title can match a page the
+        // player has won, so mod titles never count, and the menu of mods is never recorded.
+        [HarmonyPatch(typeof(Global), nameof(Global.GetWin))]
+        private static class GetWinPatch
+        {
+            private static bool Prefix(string s, ref bool __result)
+            {
+                if (mods != null && OnList(Manager) && mods.Any(m => m.Title == s))
+                {
+                    __result = false;
+                    return false;
+                }
+                return true;
+            }
+        }
+
+        [HarmonyPatch(typeof(Global), nameof(Global.SetWin))]
+        private static class SetWinPatch
+        {
+            private static bool Prefix(string s) => s != ListPage;
+        }
+
         // After the game draws a page: box the current choices and place the text fields.
         [HarmonyPatch(typeof(Draw), nameof(Draw.UpdateText1))]
         private static class UpdateText1Patch
