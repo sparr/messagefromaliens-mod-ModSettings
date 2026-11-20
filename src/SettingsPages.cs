@@ -372,7 +372,7 @@ namespace ModSettings
                         foreach (var glyph in glyphs)
                         {
                             links.Add((glyph, link));
-                            d.selected.Add(d.DrawLineRenderer(glyph.sp.transform.position + new Vector3(-0.5f, -0.92f), glyph.sp.transform.position + new Vector3(0.5f, -0.92f), 3));
+                            d.selected.Add(d.DrawLineRenderer(glyph.sp.transform.position + new Vector3(-0.45f, -0.92f), glyph.sp.transform.position + new Vector3(0.45f, -0.92f), 3));
                         }
                         continue;
                     }
