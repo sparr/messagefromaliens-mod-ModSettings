@@ -36,11 +36,24 @@ Config.Bind("Section", "Key", true, new ConfigDescription("English description",
 | `MessageFromAliens.Value.<value>` | The glyph for one value, keyed by the value as written in the `.cfg` file, such as `MessageFromAliens.Value.Fast`. |
 | `MessageFromAliens.Page` | The name in glyphs of the page the setting is on. Optional; settings without it are on the mod's own page. Settings with the same name share a page, in the order they were bound. The line that opens the page shows only the first 12 glyphs. |
 | `MessageFromAliens.Quoted` | `true` if the `.cfg` file writes the value in double quotes, as a setting must to keep leading or trailing spaces. The text field shows and takes the value without them. |
-| `MessageFromAliens.Gate` | Optional. A gate token, as the game's text files put at the start of a menu line, such as the one that opens a game: a page title with its words joined by `-`, in brackets. The setting is shown only once that gate passes, as the game decides for its own menu lines, wherever the setting's row falls on its page. A mod can hide settings for parts of the game the player has not reached. A mod none of whose settings are shown is left out of the menu. |
+| `MessageFromAliens.Gate` | Optional. A gate token, as the game's text files put at the start of a menu line, such as the one that opens a game: a page title with its words joined by `-`, in brackets, or several combined as described under [Gate tokens](#gate-tokens). The setting is shown only once that gate passes, as the game decides for its own menu lines, wherever the setting's row falls on its page. A mod can hide settings for parts of the game the player has not reached. A mod none of whose settings are shown is left out of the menu. |
 
 A `bool` setting is shown as choices, and needs no value tags. An enum setting, or one with an `AcceptableValueList`, is shown as choices when every value has exactly one glyph. Any other setting gets a text field.
 
 Examples: https://github.com/sparr/messagefromaliens-mod-CompoundTranslations/blob/60cd37f99da6bc7d56d026ba568f2ea9634ee138/src/Plugin.cs#L47C1-L95C4
+
+## Gate tokens
+
+A gate token is one bracketed token. The game reads two kinds of gate, called terms here:
+
+- `[<page>]`, a page's name with its words joined by `-`, passes once that page is won.
+- `[<chapter>-quiz-<n>]`, with `n` a whole number, passes once `n` of the chapter's quizzes are won. The chapter is the part before `-quiz-`, the start of its quizzes' names. A number written any other way, such as with a place (`1e1`), makes the token name one quiz page instead. Here and below, `quiz` stands for the game's own word for quiz, the word before the number in every quiz page's title; Content Packs' `DumpGameText` setting writes the game text that shows it.
+
+Mod Settings adds two operators inside the brackets: `|` for "or" and `+` for "and". "And" binds first, and there are no parentheses, so `[a+b|c]` passes when `a` and `b` both pass, or when `c` passes. Spaces are not allowed, since the token must stay one token. `&` is not used because the game's left panel uses it in its history.
+
+Mod Settings evaluates these in a prefix on the game's own `Global.GetWin`, sending each term through `Global.GetWin` again. So a combined token works wherever the game or a mod checks a gate: the start of a menu or explanation line in the game's text or a content pack, a setting's `MessageFromAliens.Gate`, an unlock message, and any mod that calls `Global.GetWin`. The game keeps the token whole when it parses text and in the left panel's history. Without Mod Settings, the game reads a combined token as the name of a page that does not exist, so a line under it stays hidden.
+
+A token with an empty term, such as `[a||b]` or `[a+]`, never passes.
 
 ## Unlock messages
 
@@ -73,7 +86,7 @@ Examples:
 ["MessageFromAliens.Unlock"] = "<word> <word> <word>",
 ```
 
-`<chapter>`, `<page>`, `<won-page>`, and `<word>` stand for game word IDs; in a gate token, a page's words are joined by `-`. A gate's quiz number is checked as the game checks menu lines: a whole number counts the chapter's won quizzes, and anything else, such as a number written with a place (`1e1`), names one quiz page. Here, `quiz` stands for the game's own word for quiz, the word before the number in every quiz page's title; Content Packs' `DumpGameText` setting writes the game text that shows it.
+`<chapter>`, `<page>`, `<won-page>`, and `<word>` stand for game word IDs; in a gate token, a page's words are joined by `-`. A gate's quiz number is checked as the game checks menu lines: a whole number counts the chapter's won quizzes, and anything else, such as a number written with a place (`1e1`), names one quiz page.
 
 ## Requirements
 
@@ -108,7 +121,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 | `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |
 | `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. |
 | `HardwareCursor.Apply` | Prefix: gives the cursor the clickable color over the settings page's new row, over choices, and over lines that open pages. |
-| `Global.GetWin` | Prefix: false for mods' names while the menu of mods is drawn, so a mod named like a won page is not drawn as won. |
+| `Global.GetWin` | Prefix: false for mods' names while the menu of mods is drawn, so a mod named like a won page is not drawn as won. A second prefix, run first, evaluates gate tokens that combine terms with `\|` and `+`, checking each term through `Global.GetWin`. |
 | `Global.SetWin` | Prefix: never records the menu of mods as won. |
 | `Draw.CurrentPageIsRiddle` | Postfix: false on the menu of mods and the mods' pages, whatever their names. |
 | `Draw.GetHelp` | Prefix: opens a mod page's explanation, whatever the page's name. |
