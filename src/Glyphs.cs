@@ -71,7 +71,7 @@ namespace ModSettings
             internal List<string> Page;
         }
 
-        // Mods that name themselves in glyphs and have at least one tagged setting, by English name.
+        // Mods that name themselves in glyphs and have at least one setting to show, by English name.
         internal static List<Mod> Mods()
         {
             var mods = new List<Mod>();
@@ -175,8 +175,9 @@ namespace ModSettings
         private static readonly Regex Exponent = new Regex(@"^-?\d+(?:\.\d+)?(?:e|E|x|A|F|DS|D)(-?\d+)");
 
         // The game's own tokens for a phrase, as it stores the lines of its text files, leaving out
-        // the ones it doesn't draw: tokens starting with ( or [, such as the value token it adds
-        // after a number. Each token kept is one drawn glyph.
+        // the ones it doesn't draw: tokens starting with ( or [, such as the value token it puts
+        // before a number's last glyph. Each token kept takes one cell, and each but the empty
+        // cell draws one glyph.
         // Throws for a phrase the game's parser rejects.
         internal static List<string> Words(string phrase)
         {

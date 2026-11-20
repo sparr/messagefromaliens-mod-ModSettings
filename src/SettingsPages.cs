@@ -12,7 +12,8 @@ namespace ModSettings
 {
     // Adds a row to the game's settings page that opens a menu of mods, and gives each mod a page
     // laid out like the settings page: a row per setting, its name in glyphs, then "." and its
-    // choices, the current one boxed. Settings without choice glyphs get a text field instead.
+    // choices, the current one boxed, and a line for each of the mod's other pages. Settings
+    // without choice glyphs get a text field instead.
     internal static class SettingsPages
     {
         // The game's settings page, and the name of its early, shorter text.
@@ -166,7 +167,8 @@ namespace ModSettings
         [HarmonyPatch(typeof(Draw), nameof(Draw.ToPage))]
         private static class ToPagePatch
         {
-            // Discover mods again on each visit to the menu, so the list matches what is loaded.
+            // Discover mods again each time the menu is opened from the settings page, so the list
+            // matches what is loaded. Going back to it from a mod's page keeps the list.
             private static void Prefix(string s)
             {
                 if (s == ListPage)
