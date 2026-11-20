@@ -279,6 +279,20 @@ namespace ModSettings
             private static bool Prefix(string s) => s != ListPage;
         }
 
+        // The game takes any page whose name holds its quiz word for a quiz, which changes what
+        // clicks do. Mod pages are never quizzes.
+        [HarmonyPatch(typeof(Draw), nameof(Draw.CurrentPageIsRiddle))]
+        private static class QuizPagePatch
+        {
+            private static void Postfix(Draw __instance, ref bool __result)
+            {
+                if (__result && (OnList(__instance) || OpenPage(__instance) != null))
+                {
+                    __result = false;
+                }
+            }
+        }
+
         // After the game draws a page: box the current choices and place the text fields.
         [HarmonyPatch(typeof(Draw), nameof(Draw.UpdateText1))]
         private static class UpdateText1Patch
