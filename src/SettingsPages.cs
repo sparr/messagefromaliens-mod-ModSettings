@@ -22,12 +22,12 @@ namespace ModSettings
         private const string ResetLine = "anti modify";
         // This mod's menu of mods, named like the game's own settings page.
         private const string ListPage = "modify variant";
-        private const string TutorialSuffix = " de tutorial";
+        private const string ExplainSuffix = " de tutorial";
         // The line of the home page's explanation that says what clicking a line does.
-        private const string ListTutorial = "left click sentence for start function";
-        // The lines of the settings page's explanation that say what its rows are, about the
-        // mod's attributes instead of the game's.
-        private const string ModTutorial = "space de left word be variant attribute newline left click space de right word for choose option";
+        private const string ListExplanation = "left click sentence for start function";
+        // The lines of the settings page's explanation that say what its rows are, reused for
+        // each mod's pages.
+        private const string ModExplanation = "space de left word be variant attribute newline left click space de right word for choose option";
         // Draw.Write lays out the page in rows of RowWidth cells, LinesPerPage lines to a page.
         // A row too long for one line continues on the next, one cell in.
         private const int RowWidth = 12;
@@ -197,9 +197,9 @@ namespace ModSettings
                             __result = string.Join(" newline ", (mods ??= Glyphs.Mods()).Select(m => m.Title));
                             return false;
                         }
-                        if (s == ListPage + TutorialSuffix)
+                        if (s == ListPage + ExplainSuffix)
                         {
-                            __result = ListTutorial;
+                            __result = ListExplanation;
                             return false;
                         }
                     }
@@ -213,9 +213,9 @@ namespace ModSettings
                             __result = PageRows(page).Text;
                             return false;
                         }
-                        if (s == page.Title + TutorialSuffix)
+                        if (s == page.Title + ExplainSuffix)
                         {
-                            __result = ModTutorial;
+                            __result = ModExplanation;
                             return false;
                         }
                     }
