@@ -57,36 +57,45 @@ A token with an empty term, such as `[a||b]` or `[a+]`, never passes.
 
 ## Unlock messages
 
-A mod feature that unlocks with a gate can tell the player so, as the game's own text tells the player about the games and chapters it unlocks. Declare a message with an assembly attribute, as many as needed:
+A mod feature that unlocks with a gate can tell the player so in the game's own words. The game ends a chapter's explanation, the page the explain button shows on its menu, with lines such as "win 3 of this chapter's quizzes, unlock X", shown from the start. When the chapter's wins reach 3, it shows a page in the left panel saying "you now unlock X", which this README calls a win count page. A mod declares only X, the feature's words, and Mod Settings writes both sentences:
 
 ```csharp
-[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<chapter>-quiz-3] alien glyph ids go here")]
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<chapter>-quiz-3] <feature words>")]
 ```
 
-The value is a gate token, then the message's words. The gate token is the same as for `MessageFromAliens.Gate`, so a setting and its message can share one. Mod Settings adds the message as a line at the end of the explanation of the chapter whose quizzes the gate counts, the page the explain button shows on that chapter's menu, under the same gate token, so the game draws the line only once the gate passes. Where the gate counts the chapter's quizzes, as `[<chapter>-quiz-<n>]` with `n` a whole number does, the message is also added to the page the game shows in the left panel when the chapter's wins reach `n`, and that page is shown even for a count the game has no page for.
+The value is a gate token, then the feature's words. The gate token is the same as for `MessageFromAliens.Gate`, so a setting and its message can share one.
 
-- **Choosing the page:** with the key `MessageFromAliens.Unlock`, the gate must name a chapter's quizzes, as `[<chapter>-quiz-...]`; the chapter is the part before `-quiz-`, with `-` read as a space. For any other gate, such as one on a page that is not a quiz, name the page whose explanation gets the line: `MessageFromAliens.Unlock.<page>`, with the page's name as the game's text files write it, its words separated by spaces. The page must have an explanation.
+- **Explanation lines:** for each alternative of the gate (each part between `|`), one line: "win n of the chapter's quizzes, unlock X". The terms of an alternative are joined by "and", as "win 3 of one chapter's quizzes and win 2 of another's, unlock X". A page term reads "win the page, unlock X". The line goes in the explanation of each chapter that a count term of the alternative counts. It is always shown, like the game's own. Mod Settings sorts these lines in with the game's own lines at the end of the explanation by count; at the same count, the game's come first, then mods' in the order of the mods' names and of their declarations.
+- **Win count pages:** for each count term, "you now unlock X" goes on that chapter's win count page for `n`. The game shows that page when the chapter's count of wins reaches `n`, and the line shows whenever the page does, as long as the alternative's other terms pass. Lines from "and" alternatives can so show on more than one page. The page shows even for a count the game has no page for (see [Win count pages](#win-count-pages)).
+- **Choosing the page:** with the key `MessageFromAliens.Unlock`, every alternative must have a count term whose chapter has an explanation. To put the explanation lines somewhere else, such as for a gate with only page terms, name the page whose explanation gets them: `MessageFromAliens.Unlock.<page>`, with the page's name as the game's text files write it, its words separated by spaces. The page must have an explanation. Count terms still put lines on win count pages.
 - **On a setting:** the same keys work in a setting's tags. There the gate token can be left out, and the setting's `MessageFromAliens.Gate` is used. The setting does not need a label. Use the assembly attribute for a message about a feature that has no setting, or that unlocks with a different gate than its settings.
-- **Words:** game word IDs separated by spaces, as in the game's text files, at least one glyph. `newline` starts another line under the same gate. Page breaks, buttons, brackets, and further gate tokens are not allowed. Write it in words the player can translate by the time the gate passes.
-- **Duplicates:** a line declared more than once with the same gate, as by two settings, is added once.
+- **Words:** game word IDs separated by spaces, as in the game's text files, at least one glyph and one line. Line and page breaks, buttons, brackets, `(` tokens, and further gate tokens are not allowed. Write it in words the player can translate by the time the gate passes. A left panel line holds 12 glyphs and continues on the next row, one cell in; "win n of the chapter's quizzes, unlock" takes 5 to 7 glyphs before X, and "you now unlock" takes 3.
+- **Duplicates:** a line declared more than once, as by two settings, is added once to each page.
 - **Problems** are logged as warnings, once each, and that message is left out.
 - Mod Settings reads the declarations the first time the game asks for an explanation or a win count page. It reads a setting's gate then; a gate changed later is not seen.
 
 Examples:
 
 ```csharp
-// Added to the chapter's explanation, and to the page shown when its wins reach 2.
-// Drawn once 2 of the chapter's quizzes are won.
-[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<chapter>-quiz-2] <word> <word> <word>")]
-// Added to the explanation of the page named <page>; drawn once the page <won-page> is won.
-[assembly: AssemblyMetadata("MessageFromAliens.Unlock.<page>", "[<won-page>] <word> <word>")]
+// "win 2 of <chapter>'s quizzes, unlock <feature>" in the chapter's explanation, and
+// "you now unlock <feature>" on the chapter's win count page for 2.
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<chapter>-quiz-2] <feature>")]
+// One line in each of three chapters' explanations, each with its own count, and a line on each
+// chapter's win count page for its count.
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<a>-quiz-5|<b>-quiz-3|<c>-quiz-2] <feature>")]
+// Lines in the explanation of the page named <page>: "win <won-page>, unlock <feature>".
+[assembly: AssemblyMetadata("MessageFromAliens.Unlock.<page>", "[<won-page>] <feature>")]
 
 // In a setting's tags, with the setting's gate.
 ["MessageFromAliens.Gate"] = "[<chapter>-quiz-4]",
-["MessageFromAliens.Unlock"] = "<word> <word> <word>",
+["MessageFromAliens.Unlock"] = "<feature>",
 ```
 
-`<chapter>`, `<page>`, `<won-page>`, and `<word>` stand for game word IDs; in a gate token, a page's words are joined by `-`. A gate's quiz number is checked as the game checks menu lines: a whole number counts the chapter's won quizzes, and anything else, such as a number written with a place (`1e1`), names one quiz page.
+`<chapter>`, `<a>`, `<b>`, `<c>`, `<page>`, `<won-page>`, and `<feature>` stand for game word IDs; in a gate token, a page's words are joined by `-`.
+
+### Win count pages
+
+The game names a chapter's win count page `<chapter> unlock <n>` and shows it from `Global.SetWin`, through `Draw.UnlockMessage`, when a won quiz changes the chapter's count. That count is `Global.CountWin(<chapter>)`: every won page whose name starts with the chapter's. Lessons' names do not, so the count is the chapter's won quizzes, plus one for the chapter's menu once the chapter is finished. The game records the menu as won only when every line on it is won: every lesson read and every quiz solved. So during the chapter the count equals the quizzes won, and the page for `n` shows when the `n`th quiz is won. Mod Settings' lines follow the page, so they show with the game's own lines.
 
 ## Requirements
 
@@ -115,7 +124,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 
 | Method | Patch |
 |---|---|
-| `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. A second postfix adds mods' unlock messages to explanations and to the pages shown when a chapter's wins reach a count. |
+| `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. A second postfix sorts mods' unlock lines into chapters' explanations, and gives the lines of win count pages that show. |
 | `Draw.CurrentPageIsMenu` | Postfix: true on the menu of mods, so its lines are drawn, highlighted, and clicked like a menu's. |
 | `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods is opened from the settings page, and opens a mod's page under a name no game page has, so the game runs none of its own code for a page of the same name. |
 | `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |

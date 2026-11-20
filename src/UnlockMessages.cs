@@ -2,42 +2,50 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using BepInEx.Bootstrap;
 using HarmonyLib;
 
 namespace ModSettings
 {
-    // Mods declare a line of glyphs that tells the player a feature has unlocked, with the gate
-    // token that unlocks it:
-    //   [assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<gate>] <words>")]
-    //   [assembly: AssemblyMetadata("MessageFromAliens.Unlock.<page>", "[<gate>] <words>")]
+    // Mods declare the words for a feature that unlocks with a gate:
+    //   [assembly: AssemblyMetadata("MessageFromAliens.Unlock", "[<gate>] <feature>")]
+    //   [assembly: AssemblyMetadata("MessageFromAliens.Unlock.<page>", "[<gate>] <feature>")]
     // or the same keys in a setting's tags, where the gate token may be left out to use the
-    // setting's own gate. The line is added to the end of the explanation of the chapter whose
-    // quizzes the gate counts, or of <page>, under its gate token, so the game draws it only once
-    // the gate passes. A gate that counts a chapter's quizzes also adds the line, without its gate,
-    // to the page the game shows in the left panel when the chapter's wins reach that count.
+    // setting's own gate. From these, Mod Settings writes the game's own two sentences:
+    // - "win <n> <chapter> <quiz> unlock <feature>", in every chapter's explanation whose quizzes a
+    //   term of the gate counts, or in <page>'s explanation, always shown, as the game's
+    //   explanations end with such lines. One line per alternative of the gate; the terms of an
+    //   alternative are joined by "and".
+    // - "<you now unlock> <feature>" on each win count page, "<chapter> unlock <n>", for a count
+    //   term. The game shows that page in the left panel when the chapter's count of wins reaches n.
+    //   The line shows whenever the game would show the page, and the rest of its alternative
+    //   passes. The game shows the page even for a count it has no text for.
     internal static class UnlockMessages
     {
         internal const string Key = "MessageFromAliens.Unlock";
         private const string ExplainSuffix = " de tutorial";
-        // The game's word for quiz, before the number in quiz pages' names; <quiz> in comments.
-        private const string QuizWord = "riddle";
-        private const string UnlockWord = "unlock";
+        // The text the game reads explanations and win count pages from.
+        private const string Category = "alieninfo";
 
-        // "<chapter>-<quiz>-<n>", which Global.GetWin passes once n of the chapter's quizzes are won.
-        private static readonly Regex CountGate = new Regex(@"^(.+)-" + QuizWord + @"-(\d+)$");
-
-        private sealed class Message
+        private sealed class ExplainLine
         {
-            internal string Gate;
-            // The line as the game stores its text's lines, without the gate token.
+            internal int? Count;
+            // The line as the game stores its text's lines.
             internal string Text;
         }
 
+        private sealed class PageLine
+        {
+            internal string Text;
+            // The count term the page is for, and the alternative's other terms.
+            internal string Chapter;
+            internal int Count;
+            internal List<string> Others;
+        }
+
         // Lines for explanations and for win count pages, by page name as the game stores it.
-        private static Dictionary<string, List<Message>> explain;
-        private static Dictionary<string, List<Message>> counts;
+        private static Dictionary<string, List<ExplainLine>> explain;
+        private static Dictionary<string, List<PageLine>> counts;
         // What the lines were found from: the game's text, and the loaded plugins.
         private static object builtFor;
         private static int builtPlugins;
@@ -47,7 +55,7 @@ namespace ModSettings
         {
             private static void Postfix(string category, string s, ref string __result)
             {
-                if (category != "alieninfo" || s == null || !(s.EndsWith(ExplainSuffix) || s.Contains(" " + UnlockWord + " ")))
+                if (category != Category || s == null || !(s.EndsWith(ExplainSuffix) || s.Contains(" " + UnlockText.Unlock + " ")))
                 {
                     return;
                 }
@@ -59,20 +67,21 @@ namespace ModSettings
                         return;
                     }
                     var key = Global.ParseString(s, modify: false);
-                    // A line after the first that starts with a gate token is drawn only once it
-                    // passes, so these always follow the explanation's own lines.
                     if (!string.IsNullOrEmpty(__result) && explain.TryGetValue(key, out var lines))
                     {
-                        __result += string.Concat(lines.Select(m => " newline " + m.Gate + " " + m.Text));
+                        var own = Lines(__result);
+                        var merged = UnlockText.Merge(own, lines.Select(l => (l.Count, Tokens(l.Text))));
+                        __result = string.Join(" newline ", merged.Select(l => string.Join(" ", l)));
                     }
-                    // A win count page shows when the count is reached, which its gate checks too.
-                    if (counts.TryGetValue(key, out lines))
+                    if (counts.TryGetValue(key, out var page))
                     {
-                        var won = lines.Where(m => Global.GetWin(m.Gate.Substring(1, m.Gate.Length - 2))).Select(m => m.Text).ToList();
-                        if (won.Count > 0)
+                        var shown = new List<string>();
+                        if (!string.IsNullOrEmpty(__result))
                         {
-                            __result = string.Join(" newline ", (string.IsNullOrEmpty(__result) ? won : won.Prepend(__result)));
+                            shown.Add(__result);
                         }
+                        shown.AddRange(page.Where(Shown).Select(l => l.Text).Distinct());
+                        __result = string.Join(" newline ", shown);
                     }
                 }
                 catch (Exception e)
@@ -80,6 +89,34 @@ namespace ModSettings
                     Glyphs.Warn("unlock messages", $"Unlock messages failed: {e}");
                 }
             }
+        }
+
+        // The game shows a win count page when the chapter's count of wins, as Global.CountWin
+        // counts them, reaches the page's count. That count takes in every won page whose name
+        // starts with the chapter's: its quizzes, and its menu once every line on the menu is won.
+        // Until then it equals the count of won quizzes that the gate term checks. The line follows
+        // the page, as the game's own lines on the page do.
+        private static bool Shown(PageLine line) =>
+            Global.savedata?.win != null && Global.CountWin(line.Chapter) >= line.Count && line.Others.All(Global.GetWin);
+
+        private static List<string> Tokens(string text) =>
+            text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        private static List<List<string>> Lines(string text)
+        {
+            var lines = new List<List<string>> { new List<string>() };
+            foreach (var token in Tokens(text))
+            {
+                if (token == "newline")
+                {
+                    lines.Add(new List<string>());
+                }
+                else
+                {
+                    lines[lines.Count - 1].Add(token);
+                }
+            }
+            return lines;
         }
 
         private static void Build()
@@ -92,13 +129,13 @@ namespace ModSettings
             }
             builtFor = messages;
             builtPlugins = plugins;
-            explain = new Dictionary<string, List<Message>>();
-            counts = new Dictionary<string, List<Message>>();
+            explain = new Dictionary<string, List<ExplainLine>>();
+            counts = new Dictionary<string, List<PageLine>>();
             if (messages == null)
             {
                 return;
             }
-            var added = 0;
+            var lines = 0;
             var assemblies = new HashSet<Assembly>();
             foreach (var info in Chainloader.PluginInfos.Values.OrderBy(i => i.Metadata.Name, StringComparer.OrdinalIgnoreCase))
             {
@@ -136,7 +173,7 @@ namespace ModSettings
                 {
                     try
                     {
-                        added += Add(messages, key, value, gate);
+                        lines += Add(messages, key, value, gate);
                     }
                     catch (Exception e)
                     {
@@ -144,9 +181,9 @@ namespace ModSettings
                     }
                 }
             }
-            if (added > 0)
+            if (lines > 0)
             {
-                Plugin.Log.LogInfo($"Added {added} unlock message lines");
+                Plugin.Log.LogInfo($"Added {lines} unlock message lines");
             }
         }
 
@@ -172,91 +209,106 @@ namespace ModSettings
             }
             if (gate.Length < 3 || !gate.StartsWith("[") || !gate.EndsWith("]") || gate.Contains(" ") || gate.IndexOf(']') != gate.Length - 1)
             {
-                throw new FormatException($"its gate is not one token in brackets");
+                throw new FormatException("its gate is not one token in brackets");
             }
-            var inner = gate.Substring(1, gate.Length - 2);
+            var alternatives = GateExpr.Parse(gate);
+            if (alternatives == null)
+            {
+                throw new FormatException($"its gate has an empty term, around a {GateExpr.Or} or {GateExpr.And}");
+            }
 
-            string page;
-            if (key == Key)
+            string page = null;
+            if (key != Key)
             {
-                page = Chapter(messages, inner);
-                if (page == null)
-                {
-                    throw new FormatException($"its gate counts no chapter's quizzes; name the page with {Key}.<page>");
-                }
-            }
-            else
-            {
-                page = key.Substring(Key.Length + 1).Trim();
-                if (!Exists(messages, Global.ParseString(page + ExplainSuffix, modify: false)))
+                page = Global.ParseString(key.Substring(Key.Length + 1).Trim() + ExplainSuffix, modify: false);
+                if (!Exists(messages, page))
                 {
                     throw new FormatException("the page it names has no explanation");
                 }
             }
 
-            var lines = new List<List<string>> { new List<string>() };
-            foreach (var token in tokens)
+            if (tokens.Any(t => t == "newline" || t == "newpage" || t.StartsWith("*") || t.StartsWith("{") || t.StartsWith("}") || t.StartsWith("[") || t.StartsWith("(")))
             {
-                if (token == "newline")
-                {
-                    lines.Add(new List<string>());
-                    continue;
-                }
-                if (token == "newpage" || token.StartsWith("*") || token.StartsWith("{") || token.StartsWith("}") || token.StartsWith("["))
-                {
-                    throw new FormatException("it holds a page break, button, bracket, or second gate token");
-                }
-                lines[lines.Count - 1].Add(token);
+                throw new FormatException("its words hold a line or page break, button, bracket, or second gate token");
             }
-            if (lines.Any(l => Glyphs.Words(string.Join(" ", l)).Count == 0))
+            var feature = string.Join(" ", tokens);
+            if (Glyphs.Words(feature).Count == 0)
             {
-                throw new FormatException("it has an empty line");
+                throw new FormatException("it has no words");
             }
 
-            var count = CountGate.Match(inner);
-            var countPage = count.Success ? count.Groups[1].Value.Replace("-", " ") + " " + UnlockWord + " " + count.Groups[2].Value : null;
-            var added = 0;
-            foreach (var line in lines)
+            var count = 0;
+            foreach (var alternative in alternatives)
             {
+                var terms = alternative.Select(UnlockText.ReadTerm).ToList();
                 // Stored as Global.Init stores a line of its text files.
-                var message = new Message { Gate = gate, Text = string.Join(" ", Global.StringToListString(string.Join(" ", line))) };
-                added += Put(explain, Global.ParseString(page + ExplainSuffix, modify: false), message);
-                if (countPage != null)
+                var line = Stored(UnlockText.ExplainLine(terms, feature));
+                if (page != null)
                 {
-                    Put(counts, Global.ParseString(countPage, modify: false), message);
+                    count += Put(page, terms.FirstOrDefault(t => t.IsCount)?.Count, line);
+                }
+                else
+                {
+                    var chapters = terms.Where(t => t.IsCount).Select(t => (Term: t, Page: Chapter(messages, t))).ToList();
+                    if (chapters.Count == 0)
+                    {
+                        throw new FormatException($"an alternative of its gate counts no chapter's quizzes; name the page with {Key}.<page>");
+                    }
+                    var missing = chapters.FirstOrDefault(c => c.Page == null);
+                    if (missing.Term != null)
+                    {
+                        throw new FormatException($"no chapter's explanation is named for the quizzes its gate counts; name the page with {Key}.<page>");
+                    }
+                    foreach (var (term, chapter) in chapters)
+                    {
+                        count += Put(chapter, term.Count, line);
+                    }
+                }
+                var pageLine = Stored(UnlockText.PageLine(feature));
+                for (var i = 0; i < terms.Count; i++)
+                {
+                    if (!terms[i].IsCount)
+                    {
+                        continue;
+                    }
+                    var winPage = Global.ParseString(terms[i].Chapter + " " + UnlockText.Unlock + " " + terms[i].Count, modify: false);
+                    if (!counts.TryGetValue(winPage, out var list))
+                    {
+                        counts[winPage] = list = new List<PageLine>();
+                    }
+                    var others = alternative.Where((_, j) => j != i).ToList();
+                    if (!list.Any(l => l.Text == pageLine && l.Others.SequenceEqual(others)))
+                    {
+                        list.Add(new PageLine { Text = pageLine, Chapter = terms[i].Chapter, Count = terms[i].Count, Others = others });
+                    }
                 }
             }
-            return added;
+            return count;
         }
 
+        private static string Stored(string line) => string.Join(" ", Global.StringToListString(line));
+
         // Lines already there are not added again, as when two settings declare the same message.
-        private static int Put(Dictionary<string, List<Message>> into, string key, Message message)
+        private static int Put(string page, int? count, string text)
         {
-            if (!into.TryGetValue(key, out var list))
+            if (!explain.TryGetValue(page, out var list))
             {
-                into[key] = list = new List<Message>();
+                explain[page] = list = new List<ExplainLine>();
             }
-            if (list.Any(m => m.Gate == message.Gate && m.Text == message.Text))
+            if (list.Any(l => l.Text == text))
             {
                 return 0;
             }
-            list.Add(message);
+            list.Add(new ExplainLine { Count = count, Text = text });
             return 1;
         }
 
-        // The chapter whose quizzes a gate counts or names: the part before "-<quiz>-", whose
-        // quizzes are named for it, or that and "<quiz>", for a chapter named so.
-        private static string Chapter(Dictionary<string, Dictionary<string, string>> messages, string gate)
-        {
-            var at = gate.IndexOf("-" + QuizWord + "-", StringComparison.Ordinal);
-            if (at <= 0)
-            {
-                return null;
-            }
-            var prefix = gate.Substring(0, at).Replace("-", " ");
-            return new[] { prefix, prefix + " " + QuizWord }
-                .FirstOrDefault(c => Exists(messages, Global.ParseString(c + ExplainSuffix, modify: false)));
-        }
+        // The explanation of the chapter whose quizzes a count term counts: the chapter named as the
+        // quizzes' names start, or that and "<quiz>", for a chapter named so.
+        private static string Chapter(Dictionary<string, Dictionary<string, string>> messages, UnlockText.Term term) =>
+            new[] { term.Chapter, term.Chapter + " " + UnlockText.QuizWord }
+                .Select(c => Global.ParseString(c + ExplainSuffix, modify: false))
+                .FirstOrDefault(c => Exists(messages, c));
 
         private static bool Exists(Dictionary<string, Dictionary<string, string>> messages, string key) =>
             messages.Values.Any(c => c.TryGetValue(key, out var text) && !string.IsNullOrEmpty(text));
