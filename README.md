@@ -38,7 +38,7 @@ Config.Bind("Section", "Key", true, new ConfigDescription("English description",
 | `MessageFromAliens.Quoted` | `true` if the `.cfg` file writes the value in double quotes, as a setting must to keep leading or trailing spaces. The text field shows and takes the value without them. |
 | `MessageFromAliens.Gate` | Optional. A gate token, as the game's text files put at the start of a menu line, such as the one that opens a game: a page title with its words joined by `-`, in brackets. The setting is shown only once that gate passes, as the game decides for its own menu lines, wherever the setting's row falls on its page. A mod can hide settings for parts of the game the player has not reached. A mod none of whose settings are shown is left out of the menu. |
 
-A `bool` setting is shown with the game's yes and no glyphs unless its tags say otherwise. An enum setting, or one with an `AcceptableValueList`, is shown as choices when every value has exactly one glyph. Any other setting gets a text field.
+A `bool` setting is shown as choices, and needs no value tags. An enum setting, or one with an `AcceptableValueList`, is shown as choices when every value has exactly one glyph. Any other setting gets a text field.
 
 Examples: https://github.com/sparr/messagefromaliens-mod-CompoundTranslations/blob/60cd37f99da6bc7d56d026ba568f2ea9634ee138/src/Plugin.cs#L47C1-L95C4
 

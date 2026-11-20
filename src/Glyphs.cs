@@ -13,7 +13,7 @@ namespace ModSettings
     // and shows a setting by tagging its ConfigDescription with a Dictionary<string, string>:
     //   "MessageFromAliens.Label"         the setting's name in glyphs (required)
     //   "MessageFromAliens.Value.<value>" the glyph for one value, keyed by the value as written
-    //                                     in the .cfg file (optional; bool defaults to yes/no)
+    //                                     in the .cfg file (optional for bool)
     //   "MessageFromAliens.Page"          a page's name in glyphs (optional): settings with the
     //                                     same page are shown on their own page, opened from one
     //                                     line on the mod's page where the first of them would be
