@@ -25,7 +25,7 @@
     <ManagedDir>$(GameDir)/MessageFromAliens_Data/Managed</ManagedDir>
     <BepInExCoreDir>$(GameDir)/BepInEx/core</BepInExCoreDir>
     <PluginDeployDir>$(GameDir)/BepInEx/plugins/$(AssemblyName)</PluginDeployDir>
-    <DeployToGame Condition="'$(DeployToGame)' == ''">true</DeployToGame>
+    <DeployToGame Condition="'$(DeployToGame)' == ''">false</DeployToGame>
   </PropertyGroup>
 
   <ItemGroup>

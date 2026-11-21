@@ -111,7 +111,7 @@ Mod Settings adds each win count page that has mods' lines but no text of its ow
 dotnet build -c Release
 ```
 
-The build copies `ModSettings.dll` to `<game>/BepInEx/plugins/ModSettings/`. Disable the copy with `-p:DeployToGame=false`.
+With `-p:DeployToGame=true`, the build also copies `ModSettings.dll` to `<game>/BepInEx/plugins/ModSettings/`.
 
 The build looks for the game in `<SteamLibraryDir>/steamapps/common/Message From Aliens`. `SteamLibraryDir` comes from the first of these that is set:
 
