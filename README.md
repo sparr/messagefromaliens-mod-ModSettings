@@ -55,6 +55,8 @@ Mod Settings evaluates these in a prefix on the game's own `Global.GetWin`, send
 
 A token with an empty term, such as `[a||b]` or `[a+]`, never passes.
 
+A count term can count at most one win for each page whose name starts with the chapter's name and `quiz`: the chapter's quizzes, and its menu if the menu is named so. Explanations are never won. A setting's gate or an unlock message with a count term above that would never pass, so it is rejected with a warning in the log, and that setting or message is left out.
+
 ## Unlock messages
 
 A mod feature that unlocks with a gate can tell the player so in the game's own words. The game ends a chapter's explanation, the page the explain button shows on its menu, with lines such as "win 3 of this chapter's quizzes, unlock X", shown from the start. When the chapter's wins reach 3, it shows a page in the left panel saying "you now unlock X", which this README calls a win count page. A mod declares only X, the feature's words, and Mod Settings writes both sentences:
@@ -71,7 +73,7 @@ The value is a gate token, then the feature's words. The gate token is the same 
 - **On a setting:** the same keys work in a setting's tags. There the gate token can be left out, and the setting's `MessageFromAliens.Gate` is used. The setting does not need a label. Use the assembly attribute for a message about a feature that has no setting, or that unlocks with a different gate than its settings.
 - **Words:** game word IDs separated by spaces, as in the game's text files, at least one glyph and one line. Line and page breaks, buttons, brackets, `(` tokens, and further gate tokens are not allowed. Write it in words the player can translate by the time the gate passes. A left panel line holds 12 glyphs and continues on the next row, one cell in; "win n of the chapter's quizzes, unlock" takes 5 to 7 glyphs before X, and "you now unlock" takes 3.
 - **Duplicates:** a line declared more than once, as by two settings, is added once to each page.
-- **Problems** are logged as warnings, once each, and that message is left out.
+- **Problems** are logged as warnings, once each, and that message is left out. This includes a count term above what its chapter can reach (see [Gate tokens](#gate-tokens)).
 - Mod Settings reads the declarations when the game reads its text at startup, and again if the game's text or the set of loaded plugins changes. It reads a setting's gate then; a gate changed later is not seen.
 
 Examples:

@@ -263,10 +263,12 @@ namespace ModSettings
         // True when this gate token passes, as the game checks the gate at the start of a menu
         // line. Like the game, only the first token counts. Unlike the game, a setting's gate
         // counts on its page's first row too. Global.GetWin takes the token without its brackets.
+        // A gate that could never pass, with a count above what its chapter can reach, is an error.
         private static bool Unlocked(string gate)
         {
             var token = (gate ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
             var page = token.TrimStart('[').TrimEnd(']');
+            UnlockMessages.CheckCounts(page);
             return page == "" || Global.GetWin(page);
         }
 

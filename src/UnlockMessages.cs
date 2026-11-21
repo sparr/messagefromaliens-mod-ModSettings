@@ -269,6 +269,7 @@ namespace ModSettings
             {
                 throw new FormatException($"its gate has an empty term, around a {GateExpr.Or} or {GateExpr.And}");
             }
+            CheckCounts(gate);
 
             string page = null;
             if (key != Key)
@@ -337,6 +338,50 @@ namespace ModSettings
                 }
             }
             return count;
+        }
+
+        // Rejects a gate with a count term above the most wins Global.GetWin can count for it: one
+        // for each page whose name starts as the term's chapter and "<quiz>" do, which are the
+        // chapter's quizzes, and its menu when the menu is named so. Explanations are never won.
+        internal static void CheckCounts(string gate)
+        {
+            var alternatives = GateExpr.Parse(gate);
+            if (alternatives == null || Global.alien_message == null)
+            {
+                return;
+            }
+            foreach (var term in alternatives.SelectMany(a => a).Select(UnlockText.ReadTerm).Where(t => t.IsCount))
+            {
+                var max = MaxCount(term.Chapter);
+                if (term.Count > max)
+                {
+                    throw new FormatException($"a term of its gate counts {term.Count} wins of a chapter that has only {max} pages it can count, so it would never pass");
+                }
+            }
+        }
+
+        private static object countedFor;
+        private static readonly Dictionary<string, int> maxCounts = new Dictionary<string, int>();
+
+        private static int MaxCount(string chapter)
+        {
+            var messages = Global.alien_message;
+            if (!ReferenceEquals(messages, countedFor))
+            {
+                countedFor = messages;
+                maxCounts.Clear();
+            }
+            if (maxCounts.TryGetValue(chapter, out var max))
+            {
+                return max;
+            }
+            var prefix = chapter.Replace(" ", "-") + "-" + UnlockText.QuizWord;
+            var names = new HashSet<string>(messages.Values.SelectMany(c => c.Keys));
+            names.UnionWith(Global.link_message?.Keys ?? Enumerable.Empty<string>());
+            names.UnionWith(Global.quiz_supply?.Keys ?? Enumerable.Empty<string>());
+            max = names.Count(n => !n.EndsWith(ExplainSuffix) && n.Replace(" ", "-").StartsWith(prefix));
+            maxCounts[chapter] = max;
+            return max;
         }
 
         private static string Stored(string line) => string.Join(" ", Global.StringToListString(line));
