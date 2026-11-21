@@ -66,6 +66,9 @@ namespace ModSettings
 
         private static bool OnGamePage(Draw d) => d != null && d.current_page == GamePage;
 
+        // Whether the current page is one this mod draws clickable rows on.
+        private static bool OnDrawnPage(Draw d) => OnGamePage(d) || (shown != null && shown == OpenPage(d));
+
         private static bool OnList(Draw d) =>
             d != null && d.current_page == ListPage && Parent(d, 1) == GamePage;
 
@@ -385,7 +388,8 @@ namespace ModSettings
 
         // The game sets the cursor each frame from what is under it, in the color of nothing
         // clickable for these rows; give it the clickable color instead. Setting it again after
-        // the game would change the cursor twice every frame.
+        // the game would change the cursor twice every frame. The raycast runs only on pages this
+        // mod draws.
         [HarmonyPatch(typeof(HardwareCursor), nameof(HardwareCursor.Apply))]
         private static class CursorPatch
         {
@@ -394,7 +398,7 @@ namespace ModSettings
                 try
                 {
                     var d = Manager;
-                    if (d != null && c == d.DefaultColor(5) && Clickable(d, HitGlyph()))
+                    if (d != null && c == d.DefaultColor(5) && OnDrawnPage(d) && Clickable(d, HitGlyph()))
                     {
                         c = d.DefaultColor(0);
                     }
