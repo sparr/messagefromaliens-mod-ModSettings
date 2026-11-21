@@ -33,6 +33,7 @@ namespace ModSettings
             try
             {
                 SettingsPages.Tick();
+                UnlockMessages.Tick();
             }
             catch (Exception e)
             {

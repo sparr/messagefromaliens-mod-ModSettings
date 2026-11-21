@@ -21,6 +21,12 @@ namespace ModSettings
     //   The line shows whenever the game would show the page, and the rest of its alternative
     //   passes. Pages the game has no text for are added to its text, so the game shows them and
     //   other mods find them as they find the game's own.
+    // - The same line on a page named "<page> unlock", for each page term of an alternative with no
+    //   count term, shown once the alternative passes. No menu links these pages; other mods, such
+    //   as Interface Tweaks, can list them in the menu that links <page>.
+    // - The same line in the left panel, once, at the win that makes the whole gate pass. It goes
+    //   in the win count page the game shows for that win, unless that page already has it, or in
+    //   a page of its own pushed as the game pushes a win count page.
     internal static class UnlockMessages
     {
         internal const string Key = "MessageFromAliens.Unlock";
@@ -38,15 +44,36 @@ namespace ModSettings
         private sealed class PageLine
         {
             internal string Text;
-            // The count term the page is for, and the alternative's other terms.
+            // The term the page is for: a count term's chapter and count, or a page term's gate.
+            // And the alternative's other terms.
             internal string Chapter;
             internal int Count;
+            internal string Page;
             internal List<string> Others;
         }
+
+        // One declaration: its gate without brackets, its win count page line as the game stores
+        // it, and the savedata.dict key that records it was shown in the left panel.
+        private sealed class Declaration
+        {
+            internal string Gate;
+            internal string Line;
+            internal string Key;
+        }
+
+        // The game ignores savedata.dict keys that name no word, and keeps them in the save.
+        private const string AnnouncedPrefix = "modsettings.announced:";
+        // The left panel title the game gives the win count page it shows.
+        private const string NewUnlock = "new unlock";
 
         // Lines for explanations and for win count pages, by page name as the game stores it.
         private static Dictionary<string, List<ExplainLine>> explain;
         private static Dictionary<string, List<PageLine>> counts;
+        private static List<Declaration> declarations = new List<Declaration>();
+        // The pages named for page terms, "<page> unlock", as the game stores page names.
+        private static HashSet<string> termPages = new HashSet<string>();
+        // Set when the left panel got a line, to redraw it after the current draw.
+        private static bool redraw;
         // Win count pages this mod added to the game's text, which has no lines of its own for them,
         // and the part of the game's text they were added to.
         private static HashSet<string> added = new HashSet<string>();
@@ -78,7 +105,7 @@ namespace ModSettings
         {
             private static void Postfix(string category, string s, ref string __result)
             {
-                if (category != Category || s == null || !(s.EndsWith(ExplainSuffix) || s.Contains(" " + UnlockText.Unlock + " ")))
+                if (category != Category || s == null || !(s.EndsWith(ExplainSuffix) || s.Contains(" " + UnlockText.Unlock + " ") || s.EndsWith(" " + UnlockText.Unlock)))
                 {
                     return;
                 }
@@ -119,8 +146,181 @@ namespace ModSettings
         // starts with the chapter's: its quizzes, and its menu once every line on the menu is won.
         // Until then it equals the count of won quizzes that the gate term checks. The line follows
         // the page, as the game's own lines on the page do.
+        // A page term's page shows its line once the alternative passes.
         private static bool Shown(PageLine line) =>
-            Global.savedata?.win != null && Global.CountWin(line.Chapter) >= line.Count && line.Others.All(Global.GetWin);
+            Global.savedata?.win != null
+            && (line.Page != null ? Global.GetWin(line.Page) : Global.CountWin(line.Chapter) >= line.Count)
+            && line.Others.All(Global.GetWin);
+
+        // The page named for a page term, if s names one, as the game or a menu names a page or a
+        // win: with spaces or with "-".
+        private static string TermPage(string s)
+        {
+            if (s == null || termPages.Count == 0 || !s.EndsWith(UnlockText.Unlock))
+            {
+                return null;
+            }
+            var name = s.Contains(" ") ? s : s.Replace("-", " ");
+            return termPages.Contains(name) ? name : null;
+        }
+
+        // A page term's page counts as won once it shows a line, so a menu that lists it shows it
+        // as done, and the menu can be won.
+        [HarmonyPatch(typeof(Global), nameof(Global.GetWin))]
+        private static class GetWinPatch
+        {
+            private static void Postfix(string s, ref bool __result)
+            {
+                if (__result)
+                {
+                    return;
+                }
+                try
+                {
+                    var name = TermPage(s);
+                    if (name != null && counts != null && counts.TryGetValue(name, out var lines) && lines.Any(Shown))
+                    {
+                        __result = true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Glyphs.Warn("unlock messages", $"Unlock messages failed: {e}");
+                }
+            }
+        }
+
+        private sealed class LeftPanel
+        {
+            internal int Count;
+            internal int Current;
+            internal string Entry;
+            internal bool Recorded;
+        }
+
+        // A page term's page is never recorded as won. Its name would otherwise add a win that a
+        // chapter's count includes when the term names a quiz. Before the win, every declaration
+        // whose gate already passes is recorded as shown, without showing it, as on the first run
+        // with a save or with a newly installed mod. After the win, each declaration whose gate
+        // now passes is shown in the left panel and recorded. The game writes the save inside
+        // SetWin, before the postfix records, and nothing writes it when another slot is loaded,
+        // so the postfix writes it again when either side recorded anything.
+        [HarmonyPatch(typeof(Global), nameof(Global.SetWin))]
+        private static class SetWinPatch
+        {
+            private static bool Prefix(string s, out LeftPanel __state)
+            {
+                __state = null;
+                try
+                {
+                    if (TermPage(s) != null)
+                    {
+                        return false;
+                    }
+                    Build();
+                    var d = Global.manager;
+                    if (declarations.Count == 0 || Global.savedata?.dict == null || Global.savedata.win == null || d == null)
+                    {
+                        return true;
+                    }
+                    var recorded = false;
+                    foreach (var declaration in Unannounced())
+                    {
+                        Global.savedata.dict[declaration.Key] = "1";
+                        recorded = true;
+                    }
+                    __state = new LeftPanel
+                    {
+                        Count = d.text_history.Count,
+                        Current = d.currenttext,
+                        Entry = Entry(d),
+                        Recorded = recorded,
+                    };
+                }
+                catch (Exception e)
+                {
+                    Glyphs.Warn("unlock messages", $"Unlock messages failed: {e}");
+                }
+                return true;
+            }
+
+            private static void Postfix(LeftPanel __state)
+            {
+                if (__state == null)
+                {
+                    return;
+                }
+                try
+                {
+                    var d = Global.manager;
+                    var fresh = Unannounced().ToList();
+                    foreach (var declaration in fresh)
+                    {
+                        Global.savedata.dict[declaration.Key] = "1";
+                    }
+                    if (fresh.Count > 0 || __state.Recorded)
+                    {
+                        Global.SaveGame();
+                    }
+                    if (fresh.Count == 0 || d == null)
+                    {
+                        return;
+                    }
+                    var lines = fresh.Select(x => x.Line).Distinct().ToList();
+                    var entry = Entry(d);
+                    var prefix = NewUnlock + "&";
+                    var pushed = d.text_history.Count != __state.Count || d.currenttext != __state.Current || entry != __state.Entry;
+                    if (pushed && entry != null && entry.StartsWith(prefix) && !entry.StartsWith(prefix + "&"))
+                    {
+                        // The win count page the game showed for this win.
+                        var info = entry.Substring(prefix.Length);
+                        var shown = new HashSet<string>(Lines(info).Select(l => string.Join(" ", l)));
+                        lines = lines.Where(l => !shown.Contains(l)).ToList();
+                        if (lines.Count == 0)
+                        {
+                            return;
+                        }
+                        info += " newline " + string.Join(" newline ", lines);
+                        d.text_history[d.currenttext] = prefix + info;
+                        if (d.left_title == NewUnlock)
+                        {
+                            d.left_message_text = info;
+                        }
+                    }
+                    else
+                    {
+                        // As Draw.UnlockMessage shows a win count page.
+                        var info = string.Join(" newline ", lines);
+                        d.PushLeftText(NewUnlock, info);
+                        d.left_title = NewUnlock;
+                        d.left_message_text = info;
+                    }
+                    redraw = true;
+                    Plugin.Log.LogInfo($"Showed {lines.Count} unlock message lines in the left panel");
+                }
+                catch (Exception e)
+                {
+                    Glyphs.Warn("unlock messages", $"Unlock messages failed: {e}");
+                }
+            }
+        }
+
+        private static IEnumerable<Declaration> Unannounced() =>
+            declarations.Where(d => !Global.savedata.dict.ContainsKey(d.Key) && Global.GetWin(d.Gate));
+
+        private static string Entry(Draw d) =>
+            d.currenttext >= 0 && d.currenttext < d.text_history.Count ? d.text_history[d.currenttext] : null;
+
+        // The game sets a win aside in many places, some during a draw after the left panel is
+        // drawn, so the left panel is drawn again after it.
+        internal static void Tick()
+        {
+            if (redraw)
+            {
+                redraw = false;
+                Global.manager?.UpdateText();
+            }
+        }
 
         private static List<string> Tokens(string text) =>
             text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
@@ -154,6 +354,8 @@ namespace ModSettings
             builtPlugins = plugins;
             explain = new Dictionary<string, List<ExplainLine>>();
             counts = new Dictionary<string, List<PageLine>>();
+            declarations = new List<Declaration>();
+            termPages = new HashSet<string>();
             if (messages == null)
             {
                 return;
@@ -319,30 +521,49 @@ namespace ModSettings
                     }
                 }
                 var pageLine = Stored(UnlockText.PageLine(feature));
+                var anyCount = terms.Any(t => t.IsCount);
                 for (var i = 0; i < terms.Count; i++)
                 {
-                    if (!terms[i].IsCount)
-                    {
-                        continue;
-                    }
-                    var winPage = Global.ParseString(terms[i].Chapter + " " + UnlockText.Unlock + " " + terms[i].Count, modify: false);
-                    if (!counts.TryGetValue(winPage, out var list))
-                    {
-                        counts[winPage] = list = new List<PageLine>();
-                    }
                     var others = alternative.Where((_, j) => j != i).ToList();
-                    if (!list.Any(l => l.Text == pageLine && l.Others.SequenceEqual(others)))
+                    if (terms[i].IsCount)
                     {
-                        list.Add(new PageLine { Text = pageLine, Chapter = terms[i].Chapter, Count = terms[i].Count, Others = others });
+                        var winPage = Global.ParseString(terms[i].Chapter + " " + UnlockText.Unlock + " " + terms[i].Count, modify: false);
+                        PutPage(winPage, new PageLine { Text = pageLine, Chapter = terms[i].Chapter, Count = terms[i].Count, Others = others });
+                    }
+                    else if (!anyCount)
+                    {
+                        var winPage = Global.ParseString(terms[i].Gate.Replace("-", " ") + " " + UnlockText.Unlock, modify: false);
+                        termPages.Add(winPage);
+                        PutPage(winPage, new PageLine { Text = pageLine, Page = terms[i].Gate, Others = others });
                     }
                 }
+            }
+            var inner = gate.Substring(1, gate.Length - 2);
+            var stored = string.Join(" ", Tokens(Stored(UnlockText.PageLine(feature))));
+            var announced = AnnouncedPrefix + inner + " " + feature;
+            if (!declarations.Any(d => d.Key == announced))
+            {
+                declarations.Add(new Declaration { Gate = inner, Line = stored, Key = announced });
             }
             return count;
         }
 
+        private static void PutPage(string winPage, PageLine line)
+        {
+            if (!counts.TryGetValue(winPage, out var list))
+            {
+                counts[winPage] = list = new List<PageLine>();
+            }
+            if (!list.Any(l => l.Text == line.Text && l.Page == line.Page && l.Others.SequenceEqual(line.Others)))
+            {
+                list.Add(line);
+            }
+        }
+
         // Rejects a gate with a count term above the most wins Global.GetWin can count for it: one
         // for each page whose name starts as the term's chapter and "<quiz>" do, which are the
-        // chapter's quizzes, and its menu when the menu is named so. Explanations are never won.
+        // chapter's quizzes, and its menu when the menu is named so. Explanations are never won,
+        // and pages named for page terms are never recorded as won.
         internal static void CheckCounts(string gate)
         {
             var alternatives = GateExpr.Parse(gate);
@@ -379,7 +600,7 @@ namespace ModSettings
             var names = new HashSet<string>(messages.Values.SelectMany(c => c.Keys));
             names.UnionWith(Global.link_message?.Keys ?? Enumerable.Empty<string>());
             names.UnionWith(Global.quiz_supply?.Keys ?? Enumerable.Empty<string>());
-            max = names.Count(n => !n.EndsWith(ExplainSuffix) && n.Replace(" ", "-").StartsWith(prefix));
+            max = names.Count(n => !n.EndsWith(ExplainSuffix) && !n.EndsWith(" " + UnlockText.Unlock) && n.Replace(" ", "-").StartsWith(prefix));
             maxCounts[chapter] = max;
             return max;
         }
