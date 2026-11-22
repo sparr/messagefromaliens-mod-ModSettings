@@ -129,7 +129,7 @@ namespace ModSettings
             {
                 var row = page.Rows[i];
                 var tokens = row.Setting == null ? row.Link.Words.Take(Glyphs.MaxLabel).ToList() : RowTokens(row);
-                var lines = Lines(tokens.Count);
+                var lines = After(tokens.Count).Line + 1;
                 if (i > 0)
                 {
                     text.Append(" newline ");
@@ -182,10 +182,8 @@ namespace ModSettings
             return tokens;
         }
 
-        // The lines a row of this many cells takes.
-        private static int Lines(int cells) => cells <= RowWidth ? 1 : 2 + (cells - RowWidth - 1) / (RowWidth - 1);
-
-        // The line and cell after a row's first cells, counted from the row's start.
+        // The line and cell after a row's first cells, counted from the row's start. The row takes
+        // the lines up to and including that line.
         private static (int Line, int Column) After(int cells) =>
             cells <= RowWidth ? (0, cells) : (1 + (cells - RowWidth - 1) / (RowWidth - 1), 2 + (cells - RowWidth - 1) % (RowWidth - 1));
 
