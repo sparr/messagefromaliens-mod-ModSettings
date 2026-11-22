@@ -38,15 +38,6 @@ namespace ModSettings
         private const int MinFieldCells = 4;
         private const int CharacterLimit = 200;
 
-        private sealed class Choice
-        {
-            internal AlienCharacter Glyph;
-            internal Glyphs.Setting Setting;
-            internal object Value;
-            // On a page of one setting's choices: go back to the page before once chosen.
-            internal bool Return;
-        }
-
         private sealed class Field
         {
             internal TMP_InputField Input;
@@ -55,10 +46,9 @@ namespace ModSettings
             internal int X0, X1, Y;
         }
 
-        private static readonly List<Choice> choices = new List<Choice>();
         private static readonly List<Field> fields = new List<Field>();
-        // The glyphs of each drawn line that opens another page.
-        private static readonly List<(AlienCharacter Glyph, Glyphs.Page Page)> links = new List<(AlienCharacter, Glyphs.Page)>();
+        // What clicking each clickable glyph of the drawn page does: set a choice, or open a page.
+        private static readonly Dictionary<AlienCharacter, Action> clicks = new Dictionary<AlienCharacter, Action>();
         private static List<Glyphs.Mod> mods;
         private static Glyphs.Page shown;
 
@@ -410,8 +400,7 @@ namespace ModSettings
 
         private static void Layout(Draw d)
         {
-            choices.Clear();
-            links.Clear();
+            clicks.Clear();
             var page = OpenPage(d);
             shown = page;
             var used = 0;
@@ -447,7 +436,7 @@ namespace ModSettings
                         // The whole row opens the page. Its name is underlined like a menu line.
                         foreach (var glyph in glyphs)
                         {
-                            links.Add((glyph, link));
+                            clicks[glyph] = () => d.ToPage(link.Key);
                         }
                         foreach (var glyph in label)
                         {
@@ -500,10 +489,22 @@ namespace ModSettings
             }
         }
 
-        // A clickable choice glyph, boxed when it is the current value.
+        // A clickable choice glyph, boxed when it is the current value. On a page of one setting's
+        // choices, choosing goes back to the page before.
         private static void AddChoice(Draw d, AlienCharacter glyph, Glyphs.Setting setting, object value, bool back)
         {
-            choices.Add(new Choice { Glyph = glyph, Setting = setting, Value = value, Return = back });
+            clicks[glyph] = () =>
+            {
+                setting.Entry.BoxedValue = value;
+                if (back)
+                {
+                    d.ToParentPage();
+                }
+                else
+                {
+                    d.UpdateText();
+                }
+            };
             if (Equals(value, setting.Entry.BoxedValue))
             {
                 d.selected.Add(d.DrawRectRenderer(1f, 1f, glyph.sp.transform.position, 2));
@@ -642,7 +643,7 @@ namespace ModSettings
             {
                 return glyph.line_str == ListPage;
             }
-            return shown != null && shown == OpenPage(d) && (choices.Any(c => c.Glyph == glyph) || links.Any(l => l.Glyph == glyph));
+            return shown != null && shown == OpenPage(d) && clicks.ContainsKey(glyph);
         }
 
         internal static void Tick()
@@ -661,22 +662,9 @@ namespace ModSettings
                     {
                         d.ToPage(ListPage);
                     }
-                    else if (links.Any(l => l.Glyph == glyph))
-                    {
-                        d.ToPage(links.First(l => l.Glyph == glyph).Page.Key);
-                    }
                     else
                     {
-                        var choice = choices.First(c => c.Glyph == glyph);
-                        choice.Setting.Entry.BoxedValue = choice.Value;
-                        if (choice.Return)
-                        {
-                            d.ToParentPage();
-                        }
-                        else
-                        {
-                            d.UpdateText();
-                        }
+                        clicks[glyph]();
                     }
                 }
             }
