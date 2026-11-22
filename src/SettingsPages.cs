@@ -49,6 +49,8 @@ namespace ModSettings
         private static readonly List<Field> fields = new List<Field>();
         // What clicking each clickable glyph of the drawn page does: set a choice, or open a page.
         private static readonly Dictionary<AlienCharacter, Action> clicks = new Dictionary<AlienCharacter, Action>();
+        // The glyphs among those that set a choice.
+        private static readonly HashSet<AlienCharacter> choiceGlyphs = new HashSet<AlienCharacter>();
         private static List<Glyphs.Mod> mods;
         // The settings page whose rows Layout last drew, or null. Draw.ToPage changes the page at
         // once, but the page is redrawn only at the end of Draw.Update, which for a click handled
@@ -419,6 +421,7 @@ namespace ModSettings
         private static void Layout(Draw d)
         {
             clicks.Clear();
+            choiceGlyphs.Clear();
             var page = OpenPage(d);
             shown = page;
             var used = 0;
@@ -518,6 +521,7 @@ namespace ModSettings
         // choices, choosing goes back to the page before.
         private static void AddChoice(Draw d, AlienCharacter glyph, Glyphs.Setting setting, object value, bool back)
         {
+            choiceGlyphs.Add(glyph);
             clicks[glyph] = () =>
             {
                 setting.Entry.BoxedValue = value;
@@ -670,6 +674,13 @@ namespace ModSettings
                 return glyph.line_str == ListPage;
             }
             return shown != null && shown == OpenPage(d) && clicks.ContainsKey(glyph);
+        }
+
+        // Whether the glyph sets a choice on the settings page that is laid out and showing.
+        internal static bool IsChoice(AlienCharacter glyph)
+        {
+            var d = Manager;
+            return glyph != null && choiceGlyphs.Contains(glyph) && shown != null && shown == OpenPage(d) && OnShownRightPage(d, glyph);
         }
 
         internal static void Tick()

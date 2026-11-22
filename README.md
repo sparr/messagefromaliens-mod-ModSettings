@@ -106,6 +106,12 @@ Mod Settings adds each win count page that has mods' lines but no text of its ow
 
 A page term's page is added to `Global.alien_message["alieninfo"]` the same way, named `<page> unlock`: the name of the page the term names, as the game's text and `Global.link_message` write it, with spaces, then a space and `unlock`, with no count after it. No game page's name ends in `unlock`. To list these pages, a mod can take each name in that category that ends in ` unlock`, find the menu in `Global.link_message` whose lines include the name without ` unlock`, and list it at the end of that menu while `Global.GetInfo("alieninfo", name)` is not empty. Mod Settings makes `Global.GetWin` true for such a page while it shows a line, so the menu can still be won, and never records it as won, since a page term that names a quiz would make its name add to the chapter's count.
 
+## Calling Mod Settings from other mods
+
+`ModSettings.Api` is a public static class whose members keep their names and signatures across versions. A mod that does not reference `ModSettings.dll` can find it by name with `Type.GetType` on each loaded assembly, and should do nothing when it is missing, as it is when Mod Settings is not installed or is older.
+
+- `bool IsChoiceGlyph(AlienCharacter glyph)`: true when the glyph is a choice on the Mod Settings page that is laid out and showing, either one of the options after a setting's name or one on a page of a setting's choices. False for every other glyph, including setting names, lines that open a page, and glyphs of a page no longer showing. Compound Translations uses it to keep these glyphs out of runs.
+
 ## Requirements
 
 - BepInEx 5.4.23.6 or later, `BepInEx_win_x64` build, unzipped into the game folder. Tested with Unity 6000.6.8f1.
