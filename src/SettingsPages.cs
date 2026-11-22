@@ -425,7 +425,7 @@ namespace ModSettings
             if (page != null && d.alien_right_text_down != null)
             {
                 var rows = drawnRows is { } read && read.Page == page ? read.Rows : PageRows(page).Rows;
-                foreach (var row in d.alien_right_text_down.Where(a => a.sector == "righttextdown").GroupBy(a => a.line))
+                foreach (var row in d.alien_right_text_down.Where(a => OnShownRightPage(d, a)).GroupBy(a => a.line))
                 {
                     if (row.Key < 0 || row.Key >= rows.Count || rows[row.Key].Row < 0)
                     {
@@ -507,6 +507,12 @@ namespace ModSettings
                 fields[i].Input.gameObject.SetActive(false);
             }
         }
+
+        // Whether a glyph of the page's text is on the right page showing. Draw.UpdateText1 can
+        // list glyphs of another right page and then hide them, so text fields and click actions
+        // are made only for the active glyphs of Draw.currentrightpage.
+        private static bool OnShownRightPage(Draw d, AlienCharacter a) =>
+            a != null && a.sector == "righttextdown" && a.page == d.currentrightpage && a.gameObject.activeSelf;
 
         // A clickable choice glyph, boxed when it is the current value. On a page of one setting's
         // choices, choosing goes back to the page before.
