@@ -461,7 +461,7 @@ namespace ModSettings
                         var y = y0 - start.Line;
                         var first = x0 + start.Column;
                         var last = x0 + RowWidth - 1;
-                        if (first <= last && y >= 0 && y <= d.alien_slots.GetUpperBound(1))
+                        if (y >= 0)
                         {
                             var field = used < fields.Count ? fields[used] : CreateField(d);
                             used++;
