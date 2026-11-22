@@ -12,6 +12,10 @@ The game's settings page gets one more row, this mod's name in glyphs, just abov
 
 Changes apply as they would from the `.cfg` file, and BepInEx saves them to it. Some settings change immediately, some only on a game restart.
 
+![A mod's settings page](screenshot_settings.png)
+
+Compound Translations' page, with text fields and choices, the current choice boxed.
+
 ## Naming a mod and its settings in glyphs
 
 Other mods do not need to name this mod as a dependency. Just add an assembly attribute to your mod:
@@ -66,6 +70,10 @@ A mod feature that unlocks with a gate can tell the player so in the game's own 
 ```
 
 The value is a gate token, then the feature's words. The gate token is the same as for `MessageFromAliens.Gate`, so a setting and its message can share one.
+
+![Unlock lines in a chapter explanation](screenshot_unlock.png)
+
+The end of chapter 1's explanation, with the game's own unlock lines and other mods' lines sorted in by count.
 
 - **Explanation lines:** for each alternative of the gate (each part between `|`), one line: "win n of the chapter's quizzes, unlock X". The terms of an alternative are joined by "and", as "win 3 of one chapter's quizzes and win 2 of another's, unlock X". A page term reads "win the page, unlock X". The line goes in the explanation of each chapter that a count term of the alternative counts. It is always shown, like the game's own. Mod Settings sorts these lines in with the game's own lines at the end of the explanation by count; at the same count, the game's come first, then mods' in the order of the mods' names and of their declarations.
 - **Win count pages:** for each count term, "you now unlock X" goes on that chapter's win count page for `n`. The game shows that page when the chapter's count of wins reaches `n`, and the line shows whenever the page does, as long as the alternative's other terms pass. Lines from "and" alternatives can so show on more than one page. A win count page the game has no text for is added to the game's text, so the game shows it and other mods find it with the game's own (see [Win count pages](#win-count-pages)).
