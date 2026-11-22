@@ -78,8 +78,6 @@ namespace ModSettings
             internal bool Quoted;
             // One entry per choice glyph, or null for a setting edited as text.
             internal List<(string Glyph, object Value)> Choices;
-            // Where the text field starts, in lines and cells from the start of the setting's row.
-            internal int FieldLine, FieldColumn;
             // The words of the page the setting is on, or empty for the mod's own page.
             internal List<string> Page;
         }

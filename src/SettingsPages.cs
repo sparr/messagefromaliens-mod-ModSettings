@@ -96,21 +96,22 @@ namespace ModSettings
 
         // A page's lines: a setting's name, then its choices or room for its text field, or the
         // name of a page it opens. A row that would not fit in the lines left on a page starts the
-        // next page instead, so no row is split between pages. Also the page row of each line, as
-        // Draw.Write numbers lines, or -1 for a line that only starts a page.
+        // next page instead, so no row is split between pages. Also, for each line as Draw.Write
+        // numbers lines, the page row it starts, or -1 for a line that only starts a page, and
+        // where the row's text field starts, if it has one.
         // A page of one setting's choices has a line for each RowWidth of them instead, and its
         // rows are those lines.
-        private static (string Text, List<int> Rows) PageRows(Glyphs.Page page)
+        private static (string Text, List<(int Row, (int Line, int Column)? Field)> Rows) PageRows(Glyphs.Page page)
         {
             var text = new StringBuilder();
-            var rows = new List<int>();
+            var rows = new List<(int Row, (int Line, int Column)? Field)>();
             if (page.Chooser != null)
             {
                 var glyphs = page.Chooser.Choices.Select(c => c.Glyph).ToList();
                 for (var i = 0; i * RowWidth < glyphs.Count; i++)
                 {
                     text.Append(i > 0 ? " newline " : "").Append(Line(glyphs.Skip(i * RowWidth).Take(RowWidth)));
-                    rows.Add(i);
+                    rows.Add((i, null));
                 }
                 return (text.ToString(), rows);
             }
@@ -118,7 +119,7 @@ namespace ModSettings
             for (var i = 0; i < page.Rows.Count; i++)
             {
                 var row = page.Rows[i];
-                var tokens = row.Setting == null ? row.Link.Words.Take(Glyphs.MaxLabel).ToList() : RowTokens(row);
+                var (tokens, field) = row.Setting == null ? (row.Link.Words.Take(Glyphs.MaxLabel).ToList(), null) : RowTokens(row);
                 var lines = After(tokens.Count).Line + 1;
                 if (i > 0)
                 {
@@ -132,12 +133,12 @@ namespace ModSettings
                         // Its own line, after the newline, so that mods splitting the text into
                         // rows at each newline, such as Interface Tweaks, see whole rows.
                         text.Append("newpage ");
-                        rows.Add(-1);
+                        rows.Add((-1, null));
                         used = 0;
                     }
                 }
                 text.Append(Line(tokens));
-                rows.Add(i);
+                rows.Add((i, field));
                 used += lines;
             }
             return (text.ToString(), rows);
@@ -145,20 +146,21 @@ namespace ModSettings
 
         // A setting's row: its name, an empty cell, then its choices, the current one of choices on
         // a page of their own, or the empty cells its text field covers. The field fills the rest
-        // of the line, or the next line when too little of it is left.
-        private static List<string> RowTokens(Glyphs.Row row)
+        // of the line, or the next line when too little of it is left. Also where the field starts,
+        // in lines and cells from the start of the row.
+        private static (List<string> Tokens, (int Line, int Column)? Field) RowTokens(Glyphs.Row row)
         {
             var setting = row.Setting;
             var tokens = setting.Label.Append(".").ToList();
             if (row.Link != null)
             {
                 tokens.AddRange(setting.Choices.Where(c => Equals(c.Value, setting.Entry.BoxedValue)).Take(1).Select(c => c.Glyph));
-                return tokens;
+                return (tokens, null);
             }
             if (setting.Choices != null)
             {
                 tokens.AddRange(setting.Choices.Select(c => c.Glyph));
-                return tokens;
+                return (tokens, null);
             }
             var (line, column) = After(tokens.Count);
             if (RowWidth - column < MinFieldCells)
@@ -167,9 +169,7 @@ namespace ModSettings
                 line++;
                 column = 1;
             }
-            setting.FieldLine = line;
-            setting.FieldColumn = column;
-            return tokens;
+            return (tokens, (line, column));
         }
 
         // The line and cell after a row's first cells, counted from the row's start. The row takes
@@ -409,25 +409,26 @@ namespace ModSettings
                 var rows = PageRows(page).Rows;
                 foreach (var row in d.alien_right_text_down.Where(a => a.sector == "righttextdown").GroupBy(a => a.line))
                 {
-                    if (row.Key < 0 || row.Key >= rows.Count || rows[row.Key] < 0)
+                    if (row.Key < 0 || row.Key >= rows.Count || rows[row.Key].Row < 0)
                     {
                         continue;
                     }
+                    var (rowIndex, fieldStart) = rows[row.Key];
                     var glyphs = row.ToList();
                     if (page.Chooser != null)
                     {
                         for (var i = 0; i < glyphs.Count; i++)
                         {
-                            var index = rows[row.Key] * RowWidth + i;
-                            if (index < page.Chooser.Choices.Count)
+                            var choice = rowIndex * RowWidth + i;
+                            if (choice < page.Chooser.Choices.Count)
                             {
-                                AddChoice(d, glyphs[i], page.Chooser, page.Chooser.Choices[index].Value, true);
+                                AddChoice(d, glyphs[i], page.Chooser, page.Chooser.Choices[choice].Value, true);
                             }
                         }
                         continue;
                     }
-                    var link = page.Rows[rows[row.Key]].Link;
-                    var setting = page.Rows[rows[row.Key]].Setting;
+                    var link = page.Rows[rowIndex].Link;
+                    var setting = page.Rows[rowIndex].Setting;
                     // Empty cells in the label take a cell but draw no glyph.
                     var drawn = setting == null ? glyphs.Count : setting.Label.Count(t => t != Glyphs.Gap);
                     var label = glyphs.Take(drawn).ToList();
@@ -452,13 +453,13 @@ namespace ModSettings
                             AddChoice(d, options[i], setting, setting.Choices[i].Value, false);
                         }
                     }
-                    else if (label.Count > 0 && Slot(d, label[0], out var x0, out var y0))
+                    else if (fieldStart is { } start && label.Count > 0 && Slot(d, label[0], out var x0, out var y0))
                     {
                         // The row starts at the label's first glyph. Each line of it is one slot
                         // row further down, as Draw.Write counts them.
                         x0 -= label[0].line_x;
-                        var y = y0 - setting.FieldLine;
-                        var first = x0 + setting.FieldColumn;
+                        var y = y0 - start.Line;
+                        var first = x0 + start.Column;
                         var last = x0 + RowWidth - 1;
                         if (first <= last && y >= 0 && y <= d.alien_slots.GetUpperBound(1))
                         {
