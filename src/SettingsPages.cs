@@ -562,8 +562,6 @@ namespace ModSettings
             // A fixed size, so fields with short and long values match. PositionFields sets it.
             input.textComponent.enableAutoSizing = false;
             input.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
-            input.onSelect.RemoveAllListeners();
-            input.onEndEdit.RemoveAllListeners();
             // Arrow keys stay in the field instead of moving the selection to a nearby label.
             var nav = input.navigation;
             nav.mode = UnityEngine.UI.Navigation.Mode.None;
