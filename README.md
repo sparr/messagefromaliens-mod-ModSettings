@@ -136,7 +136,7 @@ For a game folder outside a Steam library, set `GameDir` to the game folder the 
 | `Global.GetInfo` | Prefix: supplies the lines and explanations of the menu of mods and of each mod's pages. Postfix: adds the menu's row to the settings page. A second postfix sorts mods' unlock lines into chapters' explanations, and gives the lines of win count pages and page terms' pages that show. |
 | `Draw.CurrentPageIsMenu` | Postfix: true on the menu of mods, so its lines are drawn, highlighted, and clicked like a menu's. |
 | `Draw.ToPage` | Prefix: finds the mods again each time the menu of mods is opened from the settings page, and opens a mod's page under a name no game page has, so the game runs none of its own code for a page of the same name. |
-| `Draw.UpdateText1` | Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields. |
+| `Draw.UpdateText1` | Prefix: forgets the rows laid out for the last redraw. Postfix: boxes the current choices, underlines the lines that open pages, and places the text fields, using the rows laid out when the page's text was read. |
 | `Draw.Update` | Prefix: notes the page, so a click that made the game change page is not taken again by the new page's row. |
 | `HardwareCursor.Apply` | Prefix: gives the cursor the clickable color over the settings page's new row, over choices, and over lines that open pages. |
 | `Global.GetWin` | Prefix: false for mods' names while the menu of mods is drawn, so a mod named like a won page is not drawn as won. A second prefix, run first, evaluates gate tokens that combine terms with `\|` and `+`, checking each term through `Global.GetWin`. Postfix: true for a page term's page while it shows a line. |

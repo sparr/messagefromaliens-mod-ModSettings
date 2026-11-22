@@ -242,7 +242,9 @@ namespace ModSettings
                         // folded into decimal, as Global.ReverseParse writes them.
                         if (s == page.Key || s == Global.MergeString(Global.ReverseParse(page.Key)))
                         {
-                            __result = PageRows(page).Text;
+                            var rows = PageRows(page);
+                            drawnRows = (page, rows.Rows);
+                            __result = rows.Text;
                             return false;
                         }
                         if (s == page.Key + ExplainSuffix)
@@ -352,10 +354,17 @@ namespace ModSettings
             }
         }
 
+        // The rows of the page the game is drawing, as PageRows gave them when the game read the
+        // page's text. Kept only for the redraw that read it, since a row can change with its
+        // setting's value.
+        private static (Glyphs.Page Page, List<(int Row, (int Line, int Column)? Field)> Rows)? drawnRows;
+
         // After the game draws a page: box the current choices and place the text fields.
         [HarmonyPatch(typeof(Draw), nameof(Draw.UpdateText1))]
         private static class UpdateText1Patch
         {
+            private static void Prefix() => drawnRows = null;
+
             private static void Postfix(Draw __instance)
             {
                 try
@@ -365,6 +374,10 @@ namespace ModSettings
                 catch (Exception e)
                 {
                     Plugin.Log.LogError($"UpdateText1 postfix failed: {e}");
+                }
+                finally
+                {
+                    drawnRows = null;
                 }
             }
         }
@@ -411,7 +424,7 @@ namespace ModSettings
             var used = 0;
             if (page != null && d.alien_right_text_down != null)
             {
-                var rows = PageRows(page).Rows;
+                var rows = drawnRows is { } read && read.Page == page ? read.Rows : PageRows(page).Rows;
                 foreach (var row in d.alien_right_text_down.Where(a => a.sector == "righttextdown").GroupBy(a => a.line))
                 {
                     if (row.Key < 0 || row.Key >= rows.Count || rows[row.Key].Row < 0)

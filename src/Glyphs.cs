@@ -233,15 +233,15 @@ namespace ModSettings
         private static Setting Read(ConfigEntryBase entry)
         {
             var tags = entry.Description?.Tags?.OfType<IDictionary<string, string>>().FirstOrDefault();
-            if (tags == null || !tags.TryGetValue(LabelKey, out var label) || Words(label).Count == 0)
-            {
-                return null;
-            }
-            if (tags.TryGetValue(GateKey, out var gate) && !Unlocked(gate))
+            if (tags == null || !tags.TryGetValue(LabelKey, out var label))
             {
                 return null;
             }
             var words = Words(label);
+            if (words.Count == 0 || (tags.TryGetValue(GateKey, out var gate) && !Unlocked(gate)))
+            {
+                return null;
+            }
             if (words.Any(Unsupported))
             {
                 throw new FormatException("its label holds a line break, button, or bracket token");
