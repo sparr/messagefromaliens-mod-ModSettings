@@ -41,9 +41,9 @@ namespace ModSettings
 
         internal sealed class Mod
         {
-            internal string Title;
             internal List<Setting> Settings;
-            // The mod's own page, whose rows are settings and links to its other pages.
+            // The mod's own page, whose rows are settings and links to its other pages, and whose
+            // title is the mod's name.
             internal Page Root;
         }
 
@@ -134,10 +134,10 @@ namespace ModSettings
                     // Plugins that name themselves alike, such as two in one assembly, share a
                     // page, since pages are found by their names.
                     var title = string.Join(" ", words);
-                    var mod = mods.FirstOrDefault(m => m.Title == title);
+                    var mod = mods.FirstOrDefault(m => m.Root.Title == title);
                     if (mod == null)
                     {
-                        mods.Add(mod = new Mod { Title = title, Settings = new List<Setting>() });
+                        mods.Add(mod = new Mod { Root = new Page { Title = title }, Settings = new List<Setting>() });
                     }
                     mod.Settings.AddRange(settings);
                 }
@@ -153,7 +153,6 @@ namespace ModSettings
         // page, where that page's first setting is.
         private static void Build(Mod mod)
         {
-            mod.Root = new Page { Title = mod.Title };
             var pages = new Dictionary<string, Page>();
             foreach (var setting in mod.Settings)
             {

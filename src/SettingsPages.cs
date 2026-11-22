@@ -194,7 +194,7 @@ namespace ModSettings
                 if (mods != null && OnList(__instance))
                 {
                     var title = s;
-                    var mod = mods.FirstOrDefault(m => m.Title == title);
+                    var mod = mods.FirstOrDefault(m => m.Root.Title == title);
                     if (mod != null)
                     {
                         s = mod.Root.Key;
@@ -221,7 +221,7 @@ namespace ModSettings
                     {
                         if (s == ListPage)
                         {
-                            __result = string.Join(" newline ", (mods ??= Glyphs.Mods()).Select(m => m.Title));
+                            __result = string.Join(" newline ", (mods ??= Glyphs.Mods()).Select(m => m.Root.Title));
                             return false;
                         }
                         if (s == ListPage + ExplainSuffix)
@@ -294,7 +294,7 @@ namespace ModSettings
         {
             private static bool Prefix(string s, ref bool __result)
             {
-                if (mods != null && OnList(Manager) && mods.Any(m => m.Title == s))
+                if (mods != null && OnList(Manager) && mods.Any(m => m.Root.Title == s))
                 {
                     __result = false;
                     return false;
