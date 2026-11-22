@@ -50,6 +50,11 @@ namespace ModSettings
         // What clicking each clickable glyph of the drawn page does: set a choice, or open a page.
         private static readonly Dictionary<AlienCharacter, Action> clicks = new Dictionary<AlienCharacter, Action>();
         private static List<Glyphs.Mod> mods;
+        // The settings page whose rows Layout last drew, or null. Draw.ToPage changes the page at
+        // once, but the page is redrawn only at the end of Draw.Update, which for a click handled
+        // in Tick is the next frame. Until then the fields and click actions belong to the page
+        // before, so they are used only while this is still the open page. It also keeps the
+        // cursor's raycast to pages this mod draws.
         private static Glyphs.Page shown;
 
         private static Draw Manager => Global.manager;
