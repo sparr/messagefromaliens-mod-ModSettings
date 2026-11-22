@@ -559,6 +559,9 @@ namespace ModSettings
             input.characterLimit = CharacterLimit;
             input.richText = false;
             input.textComponent.alignment = TextAlignmentOptions.Left;
+            // A fixed size, so fields with short and long values match. PositionFields sets it.
+            input.textComponent.enableAutoSizing = false;
+            input.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
             input.onSelect.RemoveAllListeners();
             input.onEndEdit.RemoveAllListeners();
             // Arrow keys stay in the field instead of moving the selection to a nearby label.
@@ -705,10 +708,7 @@ namespace ModSettings
                 var corner = slots[field.X0, field.Y].transform.position + new Vector3(-0.5f, -0.5f);
                 field.Input.transform.position = (Vector2)cam.WorldToScreenPoint(corner);
                 ((RectTransform)field.Input.transform).sizeDelta = new Vector2(cell.x * (field.X1 - field.X0 + 1), Mathf.Abs(cell.y) / 1.5f);
-                // A fixed size, so fields with short and long values match.
-                field.Input.textComponent.enableAutoSizing = false;
                 field.Input.textComponent.fontSize = 0.5f * cell.x;
-                field.Input.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
             }
         }
     }
