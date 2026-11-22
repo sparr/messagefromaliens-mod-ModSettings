@@ -26,7 +26,8 @@ namespace ModSettings
     //   as Interface Tweaks, can list them in the menu that links <page>.
     // - The same line in the left panel, once, at the win that makes the whole gate pass. It goes
     //   in the win count page the game shows for that win, unless that page already has it, or in
-    //   a page of its own pushed as the game pushes a win count page.
+    //   a page of its own pushed as the game pushes a win count page. Lines whose gates already
+    //   pass when a save loads, and that it has not recorded, show then, together in one page.
     internal static class UnlockMessages
     {
         internal const string Key = "MessageFromAliens.Unlock";
@@ -74,6 +75,8 @@ namespace ModSettings
         private static HashSet<string> termPages = new HashSet<string>();
         // Set when the left panel got a line, to redraw it after the current draw.
         private static bool redraw;
+        // The loaded save that declarations whose gates already pass were last shown for.
+        private static object shownFor;
         // Win count pages this mod added to the game's text, which has no lines of its own for them,
         // and the part of the game's text they were added to.
         private static HashSet<string> added = new HashSet<string>();
@@ -200,11 +203,12 @@ namespace ModSettings
 
         // A page term's page is never recorded as won. Its name would otherwise add a win that a
         // chapter's count includes when the term names a quiz. Before the win, every declaration
-        // whose gate already passes is recorded as shown, without showing it, as on the first run
-        // with a save or with a newly installed mod. After the win, each declaration whose gate
-        // now passes is shown in the left panel and recorded. The game writes the save inside
-        // SetWin, before the postfix records, and nothing writes it when another slot is loaded,
-        // so the postfix writes it again when either side recorded anything.
+        // whose gate already passes is recorded as shown, without showing it. ShowPassed has shown
+        // those whose gates passed when the save loaded, so this leaves only gates passed since by
+        // other means. After the win, each declaration whose gate now passes is shown in the left
+        // panel and recorded. The game writes the save inside SetWin, before the postfix records,
+        // and nothing writes it when another slot is loaded, so the postfix writes it again when
+        // either side recorded anything.
         [HarmonyPatch(typeof(Global), nameof(Global.SetWin))]
         private static class SetWinPatch
         {
@@ -315,10 +319,57 @@ namespace ModSettings
         // drawn, so the left panel is drawn again after it.
         internal static void Tick()
         {
+            ShowPassed();
             if (redraw)
             {
                 redraw = false;
                 Global.manager?.UpdateText();
+            }
+        }
+
+        // Once a save is loaded and the game's manager exists, at startup and after another save
+        // slot is loaded, every declaration whose gate already passes and that the save has not
+        // recorded is shown in the left panel, all in one page as a win shows its win count page,
+        // and recorded. The save is written at once, so a restart or a switch of slots doesn't
+        // show them again.
+        private static void ShowPassed()
+        {
+            var save = Global.savedata;
+            var d = Global.manager;
+            if (save == null || d == null || ReferenceEquals(save, shownFor))
+            {
+                return;
+            }
+            shownFor = save;
+            try
+            {
+                if (save.dict == null || save.win == null || d.text_history == null)
+                {
+                    return;
+                }
+                Build();
+                var fresh = Unannounced().ToList();
+                if (fresh.Count == 0)
+                {
+                    return;
+                }
+                foreach (var declaration in fresh)
+                {
+                    save.dict[declaration.Key] = "1";
+                }
+                // As Draw.UnlockMessage shows a win count page.
+                var lines = fresh.Select(x => x.Line).Distinct().ToList();
+                var info = string.Join(" newline ", lines);
+                d.PushLeftText(NewUnlock, info);
+                d.left_title = NewUnlock;
+                d.left_message_text = info;
+                Global.SaveGame();
+                redraw = true;
+                Plugin.Log.LogInfo($"Showed {lines.Count} unlock message lines in the left panel for gates the save already passes");
+            }
+            catch (Exception e)
+            {
+                Glyphs.Warn("unlock messages", $"Unlock messages failed: {e}");
             }
         }
 
