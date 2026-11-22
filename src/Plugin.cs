@@ -1,10 +1,7 @@
 using System;
-using System.Reflection;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
-
-[assembly: AssemblyMetadata(ModSettings.Glyphs.NameKey, "modify variant")]
 
 namespace ModSettings
 {
