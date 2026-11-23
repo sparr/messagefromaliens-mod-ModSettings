@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## [0.2.0](https://github.com/sparr/messagefromaliens-mod-ModSettings/releases/tag/v0.2.0) - 2026-11-22
+## [0.2.0](https://github.com/sparr/messagefromaliens-mod-ModSettings/releases/tag/v0.2.0) - 2026-11-23
 
 - Added unlock messages: mods can announce a gated feature in the game's own sentences, in chapter explanations, on win count pages, and in the left panel at the win.
 - Added `|` (or) and `+` (and) in gate tokens, and win count pages that only mods fill.
